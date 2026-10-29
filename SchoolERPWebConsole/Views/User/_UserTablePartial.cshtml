@@ -1,0 +1,305 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.UsersPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var permi = Model.Permissions;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="usersTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:50px" class="ps-3">Select</th>
+                                <th class="">User</th>
+                                <th class="">Contact</th>
+                                <th class="">User Type</th>
+                                <th class="">Role(s)</th>
+                                <th class="">Company/School</th>
+
+                                <th class="">Created</th>
+                                <th>
+                                    Status
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var companyNameById = (Model.Companies ?? new List<MstCompanyViewModel>())
+                                .GroupBy(c => c.CompanyId)
+                                .ToDictionary(g => g.Key, g => g.First().SchoolName);
+                            }
+                            @if (Model.Users != null)
+                            {
+                                @foreach (var user in Model.Users)
+                                {
+                                    <tr class="user-row"
+                                        data-status="@(user.IsLocked ? "locked" : (user.IsActive ? "active" : "inactive"))"
+                                        data-user-type-id="@user.UserTypeID"
+                                        data-role-ids="@(user.RoleIDs != null ? string.Join(",", user.RoleIDs) : "")"
+                                        data-company-ids="@(user.CompanyIDs != null ? string.Join(",", user.CompanyIDs) : "")"
+                                        onclick="selectUser(@user.UserID, this, @user.IsLocked.ToString().ToLower())" style="cursor: pointer;">
+                                        <td class="ps-4 text-center">
+                                            <input type="radio" name="selectedUser_rdo" hidden class="form-check-input" value="@user.UserID">
+                                            <input type="checkbox" name="selectedUser"
+                                                   class="user-checkbox"
+                                                   value="@user.UserID" />
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @*  <div class="avatar-circle me-3" style="background: @avatarColor;">
+                                        <span class="avatar-initials">@initials</span>
+                                        </div> *@
+                                                <div class="d-flex flex-column justify-content-center">
+                                                    @user.FullName
+                                                    <p class="text-xs text-primary small mb-0">@@@user.Username</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <p class="mb-0"><i class="ti ti-mail"></i> @user.Email</p>
+                                            <p class="mb-0 text-muted"><i class="ti ti-phone"></i> @user.PhoneNo</p>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border fw-normal">@user.UserTypeName</span>
+                                        </td>
+                                        <td>
+                                            @{
+                                                string displayRoles = user.RoleNames;
+                                                var roleList = displayRoles.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                                                var limitedRoles = roleList.Take(2).ToList();
+                                                int remainingRoles = roleList.Length - limitedRoles.Count;
+                                            }
+                                            <div class="list-expandable" onclick="toggleListExpansion(this, event)">
+                                                <div class="short-view d-flex flex-wrap gap-1">
+                                                    @foreach (var role in limitedRoles)
+                                                    {
+                                                        <span class="badge bg-light text-dark border fw-normal">@role.Trim()</span>
+                                                    }
+                                                    @if (remainingRoles > 0)
+                                                    {
+                                                        <span class="badge bg-secondary-subtle text-dark border cursor-pointer fw-normal">+@remainingRoles more</span>
+                                                    }
+                                                </div>
+                                                <div class="full-view d-none flex-wrap gap-1">
+                                                    @foreach (var role in roleList)
+                                                    {
+                                                        <span class="badge bg-light text-dark border fw-normal">@role.Trim()</span>
+                                                    }
+                                                    <span class="badge bg-dark-subtle text-dark border cursor-pointer fw-normal">less</span>
+                                                </div>
+                                            </div>
+                                        </td>
+
+
+                                        <td>
+                                            @{
+                                                var companies = string.IsNullOrWhiteSpace(user.COMPANIESJSON)
+                                                ? new List<CompanyRef>()
+                                                : JsonSerializer.Deserialize<List<CompanyRef>>(user.COMPANIESJSON, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                                                ?? new List<CompanyRef>();
+
+                                                var limitedCompanies = companies.Take(2).ToList();
+                                                var remainingCompanyCount = companies.Count - limitedCompanies.Count;
+                                            }
+                                            <div class="list-expandable" onclick="toggleListExpansion(this, event)">
+                                                @if (!companies.Any())
+                                                {
+                                                    <span class="text-muted">Not Assigned</span>
+                                                }
+                                                else
+                                                {
+                                                    <div class="short-view d-flex align-items-center gap-1 flex-wrap">
+                                                        @foreach (var company in limitedCompanies)
+                                                        {
+                                                            <span class="badge bg-light text-dark border fw-normal">@company.CompanyName</span>
+                                                        }
+                                                        @if (remainingCompanyCount > 0)
+                                                        {
+                                                            <span class="badge bg-secondary-subtle text-dark border cursor-pointer fw-normal">
+                                                                +@remainingCompanyCount more
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                    <div class="full-view d-none align-items-center gap-1 flex-wrap">
+                                                        @foreach (var company in companies)
+                                                        {
+                                                            <span class="badge bg-light text-dark border fw-normal">@company.CompanyName</span>
+                                                        }
+                                                        <span class="badge bg-dark-subtle text-dark border cursor-pointer fw-normal">less</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </td>
+
+
+                                        <td class="">
+                                            <span class="">@user.CreatedOn.ToString("dd MMM yyyy")</span>
+                                        </td>
+                                        <td class="align-middle text-center text-sm">
+                                            @if (user.IsLocked)
+                                            {
+                                                <span class="badge badge-sm bg-gradient-danger">
+                                                    <i class="fas fa-lock me-1"></i>Locked
+                                                </span>
+                                            }
+                                            else if (user.IsActive)
+                                            {
+                                                <div class="form-check form-switch d-flex align-items-center mb-0" onclick="event.stopPropagation()">
+                                                    <input class="form-check-input" type="checkbox" role="switch"
+                                                           checked onchange="updateUserStatus(@user.UserID, this.checked)"
+                                                           id="statusSwitch_@user.UserID">
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="form-check form-switch d-flex align-items-center mb-0" onclick="event.stopPropagation()">
+                                                    <input class="form-check-input" type="checkbox" role="switch"
+                                                           onchange="updateUserStatus(@user.UserID, this.checked)"
+                                                           id="statusSwitch_@user.UserID">
+                                                </div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                                @if (!Model.Users.Any())
+                                {
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <span class="text-muted">No records found.</span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2">
+
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <!-- Page buttons -->
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="@Url.Action("Index", new {
+                           pageIndex  = 1,
+                           pageSize   = Model.PageSize,
+                           search     = Model.SearchTerm,
+                           companyId  = Model.CompanyId,
+                           isActive   = Model.IsActive,
+                           userTypeId = Model.UserTypeId
+                       })">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="@Url.Action("Index", new {
+                           pageIndex  = Model.PageNumber - 1,
+                           pageSize   = Model.PageSize,
+                           search     = Model.SearchTerm,
+                           companyId  = Model.CompanyId,
+                           isActive   = Model.IsActive,
+                           userTypeId = Model.UserTypeId
+                       })">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int p = start; p <= end; p++)
+                                    {
+                                        <li class="page-item @(p == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="@Url.Action("Index", new {
+                               pageIndex  = p,
+                               pageSize   = Model.PageSize,
+                               search     = Model.SearchTerm,
+                               companyId  = Model.CompanyId,
+                               isActive   = Model.IsActive,
+                               userTypeId = Model.UserTypeId
+                           })">@p</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="@Url.Action("Index", new {
+                           pageIndex  = Model.PageNumber + 1,
+                           pageSize   = Model.PageSize,
+                           search     = Model.SearchTerm,
+                           companyId  = Model.CompanyId,
+                           isActive   = Model.IsActive,
+                           userTypeId = Model.UserTypeId
+                       })">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="@Url.Action("Index", new {
+                           pageIndex  = totalPages,
+                           pageSize   = Model.PageSize,
+                           search     = Model.SearchTerm,
+                           companyId  = Model.CompanyId,
+                           isActive   = Model.IsActive,
+                           userTypeId = Model.UserTypeId
+                       })">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

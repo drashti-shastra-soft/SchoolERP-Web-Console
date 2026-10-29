@@ -1,0 +1,244 @@
+﻿@using System.Security.Claims
+@using System.Text.Json
+@model SchoolERPWebConsole.Domain.StudentDetailsViewModel
+@{
+    ViewData["Title"] = "Student Fees";
+    var p = Model.Permissions;
+    var b = Model.BasicInfo;
+}
+
+<style>
+    .table > :not(caption) > .table-danger > * {
+    background-color: #f2dede;
+    border-color: rgb(var(--danger-rgb), 0.1);
+    color: #000;
+    }
+
+    .student-info-row {
+    display: flex;
+    padding: 6px 0;
+    border-bottom: 1px dashed #eee;
+    }
+
+    .student-info-row:last-child {
+    border-bottom: none;
+    }
+
+    .student-info-label {
+    width: 140px;
+    color: #6c757d;
+    font-weight: 600;
+    }
+
+    .student-info-value {
+    flex: 1;
+    font-weight: 600;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Student Fees</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        <a href="/StudentFees/Index" class="btn btn-secondary d-inline-flex align-items-center top-btn"><i class="ti ti-arrow-left me-1"></i> Back</a>
+    </div>
+</div>
+<!-- End Page Header -->
+<!-- Student Info Card (image-wise layout) -->
+<div class="card shadow-tbl-outer mb-3">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <img src="@(string.IsNullOrEmpty(b?.StudentPhoto) ? "/assets/img/doctors/doctor-01.jpg" : b.StudentPhoto)"
+                class="rounded" alt="" style="width:85px;height:85px;object-fit:cover" />
+            </div>
+            <div class="col">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="student-info-row">
+                            <input type="hidden" id="hdnStudentId" value="@Model.BasicInfo?.StudentID ?? 0" />
+                            <input type="hidden" id="hdnRole" value="@Model.Role" />
+                            <span class="student-info-label">Name</span>
+                            <span class="student-info-value">@b?.FirstName</span>
+                        </div>
+                        <div class="student-info-row">
+                            @* TODO: replace FatherName with the actual property on BasicInfo *@
+                            <span class="student-info-label">Father Name</span>
+                            <span class="student-info-value">@(b?.FatherName ?? "-")</span>
+                        </div>
+                        <div class="student-info-row">
+                            @* TODO: replace MobileNo with the actual property on BasicInfo *@
+                            <span class="student-info-label">Mobile Number</span>
+                            <span class="student-info-value">@(b?.MobileNo ?? "-")</span>
+                        </div>
+
+                    </div>
+                    <div class="col-md-6">
+                        <div class="student-info-row">
+                            <span class="student-info-label">Class (Section)</span>
+                            <span class="student-info-value">@b?.ClassName (@b?.SectionName)</span>
+                        </div>
+                        <div class="student-info-row">
+                            <span class="student-info-label">Admission No</span>
+                            <span class="student-info-value">@b?.AdmissionNo</span>
+                        </div>
+                        <div class="student-info-row">
+                            <span class="student-info-label">Roll Number</span>
+                            <span class="student-info-value">@b?.RollNo</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end Student Info Card -->
+
+<input type="hidden" id="hdnStudentId" value="@Model.BasicInfo?.StudentID" />
+
+<!-- Fees Card -->
+<div class="card shadow-tbl-outer">
+    <div class="card-body">
+
+        <!-- Toolbar -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="d-flex gap-2">
+                <button type="button" id="btnPrintSelected" class="btn btn-dark d-inline-flex align-items-center">
+                    <i class="fa fa-print me-1"></i> Print Selected
+                </button>
+                <button type="button" id="btnCollectSelected" class="btn text-white d-inline-flex align-items-center" style="background:#f5a623">
+                    <i class="fa fa-money-bill me-1"></i> Collect Selected
+                </button>
+            </div>
+            <div class="text-muted">
+                Date: @DateTime.Now.ToString("dd-MM-yyyy")
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-nowrap mb-0" id="tblStudentFees">
+                <thead>
+                    <tr>
+                        <th style="width:30px"><input type="checkbox" id="chkAllFees" /></th>
+                        <th>Fees Group</th>
+                        <th>Fees Code</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Amount (₹)</th>
+                        <th>Payment ID</th>
+                        <th>Mode</th>
+                        <th>Date</th>
+                        <th>Discount</th>
+                        <th>Fine</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.studentFeeDetailsModel?.Data != null && Model.studentFeeDetailsModel.Data.Any())
+                    {
+                        @foreach (var item in Model.studentFeeDetailsModel.Data)
+                        {
+                            var rowClass = item.Status == "Paid" ? "table-success"
+                            : item.Status == "Partial" ? "table-warning"
+                            : "table-danger";
+                            var badgeClass = item.Status == "Paid" ? "bg-success"
+                            : item.Status == "Partial" ? "bg-warning text-dark"
+                            : "bg-danger";
+                            var isPaid = item.Status == "Paid";
+
+                            @* TODO: MapStudentsFeeId should be the actual row/map id field used by CollectOffline's MapStudentsFeeIds list *@
+                            <tr class="@rowClass"
+                            data-mapid="@item.MapStudentsFeeId"
+                            data-collec="@item.CollectionId"
+                            data-detailid="@item.DetailId"
+                            data-group="@item.FeesGroup"
+                            data-code="@item.FeesCode"
+                            data-amount="@item.Balance.ToString("0.00")"
+                            data-latedate="@(item.DueDate?.ToString("yyyy-MM-dd"))"
+                            data-lateamt="@item.Fine.ToString("0.00")">
+                                <td>
+                                    <input type="checkbox" class="fee-check" @(isPaid ? "disabled" : "") />
+                                </td>
+                                <td>@item.FeesGroup</td>
+                                <td>@item.FeesCode</td>
+                                <td>@(item.DueDate?.ToString("dd-MM-yyyy"))</td>
+                                <td><span class="badge @badgeClass">@item.Status</span></td>
+                                <td class="text-end">@item.Amount.ToString("0.00") <span class="text-danger">+ @item.Fine.ToString("0.00")</span></td>
+                                <td>@item.PaymentId</td>
+                                <td>@item.PaymentMode</td>
+                                <td>@(item.PaymentDate?.ToString("dd-MM-yyyy"))</td>
+                                <td class="text-end">@item.Discount.ToString("0.00")</td>
+                                <td class="text-end">@item.Fine.ToString("0.00")</td>
+                                <td class="text-end">@item.Paid.ToString("0.00")</td>
+                                <td class="text-end">@item.Balance.ToString("0.00")</td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        @if (@item.CollectionId>0)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-danger btn-refund-row" title="Refund"
+                                                    data-mapid="@item.MapStudentsFeeId" data-collec="@item.CollectionId" data-paid="@item.Paid.ToString("0.00")"
+                                            @(isPaid ? "" : "disabled")>
+                                                <i class="fa fa-undo"></i>
+                                            </button>
+                                        }
+                                        
+                                        @* <button type="button" class="btn btn-sm btn-outline-secondary btn-collect-row" title="Collect" @(isPaid ? "disabled" : "")>
+                                            <i class="fa fa-plus"></i>
+                                        </button> *@
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-print-row" title="Print">
+                                            <i class="fa fa-print"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="14" class="text-danger text-center">No Data Found</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    @if (Model.studentFeeDetailsModel?.Total != null)
+                    {
+                        var t = Model.studentFeeDetailsModel.Total;
+                        <tr class="table-secondary fw-bold">
+                            <td colspan="2"></td>
+                            <td colspan="2">Grand Total</td>
+                            <td></td>
+                            <td class="text-end">₹@t.TotalAmount.ToString("0.00")<span class="text-danger">+@t.TotalFine.ToString("0.00")</span></td>
+                            <td colspan="3"></td>
+                            <td class="text-end">₹@t.TotalDiscount.ToString("0.00")</td>
+                            <td class="text-end">₹@t.TotalFine.ToString("0.00")</td>
+                            <td class="text-end">₹@t.TotalPaid.ToString("0.00")</td>
+                            <td class="text-end">₹@t.TotalBalance.ToString("0.00")</td>
+                            <td></td>
+                        </tr>
+                    }
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+    <!-- end card-body -->
+</div>
+<!-- end Fees Card -->
+
+<partial name="_CollectFeesModal" />
+
+@section Scripts {
+            window.studentId = @(Model.BasicInfo?.StudentID ?? 0);
+                 
+    <script src="~/assets/js/StudentFeesDetails.js">
+      
+    </script>
+    
+}

@@ -1,0 +1,151 @@
+﻿@model SchoolERPWebConsole.Domain.VehiclePageViewModel
+@{
+    ViewData["Title"] = "Vehicle Details";
+    var v = Model.EditVehicle;
+}
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Vehicle Details</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (Model.Permissions.CanEdit && v != null)
+        {
+            <a href="/Transport/AddVehicle/@v.VehicleID" class="btn btn-info top-btn">
+                <i class="ti ti-pencil me-1"></i> Edit
+            </a>
+        }
+        <a href="/Transport/Vehicles" class="btn btn-secondary top-btn">
+            <i class="ti ti-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+<style>
+    .section {
+        margin: 22px;
+    }
+    .image {
+        margin-top: 50px;
+        margin-right: 0px;
+    }
+    .vehicle-image-box {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .vehicle-image {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+    }
+
+    @@media (max-width: 767.98px) {
+        .vehicle-image-box
+
+    {
+        width: 180px;
+        height: 180px;
+    }
+
+    }
+</style>
+
+@if (ViewBag.ErrorMessage != null)
+{
+    <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+}
+else if (v == null)
+{
+    <div class="alert alert-warning">Vehicle not found.</div>
+}
+else
+{
+    <div class="card shadow-tbl">
+        <div class="card-body section">
+            <div class="row">
+                @* <div class="col-md-3 text-center mb-3 mb-md-0">
+                    <img src="data:image/png;base64,@v.Base64String"
+                         class="img-fluid rounded border" style="max-height:200px;" />
+                </div> *@
+                <div class="col-md-3 text-center mb-3 mb-md-0 image">
+                    <div class="vehicle-image-box">
+                        <img src="data:image/png;base64,@v.Base64String"
+                             alt="Vehicle Image"
+                             class="vehicle-image" />
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <h6 class="fw-bold mb-3">Vehicle Information</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Vehicle Number</div>
+                            <div class="fw-semibold">@v.VehicleNumber</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Model</div>
+                            <div class="fw-semibold">@v.VehicleModel</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Year Made</div>
+                            <div class="fw-semibold">@v.VehicleYearMade</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Registration No</div>
+                            <div class="fw-semibold">@v.VehicleRegNo</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Chasis No</div>
+                            <div class="fw-semibold">@v.VehicleChasisNo</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Max Capacity</div>
+                            <div class="fw-semibold">@v.VehicleMaxCapicity</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Status</div>
+                            <div>
+                                @if (v.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Inactive</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <h6 class="fw-bold mb-3">Driver Information</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Driver Name</div>
+                            <div class="fw-semibold">@v.VehicleDriverName</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Driver Contact</div>
+                            <div class="fw-semibold">@v.VehicleDriverContact</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-muted small">Driver License No</div>
+                            <div class="fw-semibold">@v.VehicleDriverLicense</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

@@ -1,0 +1,119 @@
+﻿@model StudentListPageViewModel
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table table-nowrap mb-0" id="tblStudents">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" id="selectAll" class="form-check-input" onchange="toggleSelectAll(this)">
+                                </th>
+                                <th>Admission No</th>
+                                <th>Student Name</th>
+                                <th>Roll No.</th>
+                                <th>Class</th>
+                                <th>Father Name</th>
+                                <th>DOB</th>
+                                <th>Mobile Number</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentListBody">
+                            @if (Model.Students != null && Model.Students.Any())
+                            {
+                                @foreach (var s in Model.Students)
+                                {
+                                    <tr class="student-item-row">
+                                        <td class="ps-3">
+                                            <input type="checkbox" class="form-check-input student-checkbox"
+                                                   value="@s.StudentID" onchange="updateDeleteButton()">
+                                        </td>
+                                        <td>@(s.AdmissionNo ?? "-")</td>
+                                        <td class="fw-semibold">@s.FullName</td>
+                                        <td>@(s.RollNo ?? "-")</td>
+                                        <td>@(s.ClassName ?? "-") @(!string.IsNullOrEmpty(s.SectionName) ? $"({s.SectionName})" : "")</td>
+                                        <td>@(s.FatherName ?? "-")</td>
+                                        <td>@(s.DOB != null && s.DOB != default ? s.DOB.Value.ToString("dd-MM-yyyy") : "-")</td>
+                                        <td>@(s.MobileNo ?? "-")</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">
+                                        No active students found.
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> Bulk Delete
+                            </div>
+
+                            <nav aria-label="Student pagination">
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?page=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?page=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?page=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">@pg</a>
+                                        </li>
+                                    }
+
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?page=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?page=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,64 @@
+@model SchoolERPWebConsole.Domain.PromoteStudentsPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+}
+ <div class="col-xl-12">
+        <div class="card overflow-auto shadow-tbl">
+            <div class="card-body p-0 overflow-auto">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table table-nowrap mb-0" id="studentsTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th class="ps-4" style="width: 10%;"><input type="checkbox" class="form-check-input" id="selectAll"> Select</th>
+                                <th>Admission No</th>
+                                <th>Student Name</th>
+                                <th>Father Name</th>
+                                <th>Date Of Birth</th>
+                                <th>Promotion Class</th>
+                                <th>Next Session</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @if (Model.Students.Any())
+                        {
+                            foreach (var s in Model?.Students)
+                            {
+
+                                <tr class="student-row" data-id="@s.StudentID">
+                                    @* <td>
+                                        <input type="hidden" class="hdnNEXTCLASSID" value="@s.NEXTCLASSID" />
+                                        <input type="hidden" class="hdnNEXTSESSIONID" value="@s.NEXTSESSIONID" />
+                                        <input type="checkbox" class="form-check-input student-checkbox">
+                                    </td> *@
+                                        <td class="ps-4 text-center" style="cursor: pointer; vertical-align: middle;">
+                                            <div class="d-flex align-items-center justify-content-center" onclick="event.stopPropagation()">
+                                                <input type="hidden" class="hdnNEXTCLASSID" value="@s.NEXTCLASSID" />
+                                                <input type="hidden" class="hdnNEXTSESSIONID" value="@s.NEXTSESSIONID" />
+                                                <input type="checkbox" class="form-check-input student-checkbox">
+                                            </div>
+                                        </td>
+                                    <td>@s.AdmissionNo</td>
+                                    <td>@s.StudentName</td>
+                                    <td>@s.FatherName</td>
+                                    <td>@(s.DOB?.ToString("dd-MM-yyyy") ?? "-")</td>
+                                    <td>@s.NextClassName</td>
+                                    <td>@s.NEXTSESSIONTITLE</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">No students found. Please apply filters.</td>
+                                    </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>

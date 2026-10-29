@@ -1,0 +1,290 @@
+﻿@model SchoolERPWebConsole.Domain.HRStaffAttendancePageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+    var pageSize = Model.PageSize > 0
+        ? Model.PageSize
+        : 10;
+
+    var requestedPage = 1;
+
+    if (int.TryParse(
+        Context.Request.Query["pageIndex"],
+        out var queryPage))
+    {
+        requestedPage = queryPage;
+    }
+
+    var currentPage = requestedPage < 1
+        ? 1
+        : requestedPage;
+
+    var totalRecords = Math.Max(Model.TotalRecords, 0);
+
+    var totalPages = totalRecords == 0
+        ? 1
+        : (int)Math.Ceiling(
+            (double)totalRecords / pageSize
+          );
+
+    if (currentPage > totalPages)
+    {
+        currentPage = totalPages;
+    }
+
+    var firstRecord = totalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    var lastRecord = totalRecords == 0
+        ? 0
+        : Math.Min(currentPage * pageSize, totalRecords);
+
+    var searchTerm = Model.SearchTerm ?? "";
+    var dateParam = Model.AttendanceDate?.ToString("dd-MM-yyyy");
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-header d-flex justify-content-between align-items-center">
+
+            <div class="text-muted small">
+                <i class="ti ti-info-circle me-1"></i>Tip: use the checkbox in each column header to mark that status for every student below.
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+
+                    <div class="attendance-table-wrap">
+                        <table class="table attendance-table">
+                            <thead>
+                                <tr class="bg-light">
+                                    <th class="sortable">
+                                        <span class="th-inner">Staff ID <i class="sort-icon">&#8597;</i></span>
+                                    </th>
+                                    <th class="sortable">
+                                        <span class="th-inner">Name <i class="sort-icon">&#8597;</i></span>
+                                    </th>
+                                    <th class="sortable">
+                                        <span class="th-inner">Role <i class="sort-icon">&#8597;</i></span>
+                        
+                                    </th>   
+                                    <th>
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="1" title="Mark all Present">
+                                            <span>Present</span>
+
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="2" title="Mark all Late">
+                                            <span>Late</span>
+
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="3" title="Mark all Absent">
+                                            <span>Absent</span>
+
+                                        </div>
+                                    </th>
+                                    <th style="min-width:120px;">
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="4" title="Mark all Half Day">
+                                            <span>Half Day</span>
+                                        </div>
+                                    </th>
+                                    @*  <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="4" title="Mark all Half Day">
+                                        <span>Half Day</span>
+
+                                    </div>
+                                </th> *@
+                                    <th>
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="5" title="Mark all Leave">
+                                            <span>Leave</span>
+
+                                        </div>
+                                    </th>
+
+                                    <th class="sortable">
+                                        <span class="th-inner">Date <i class="sort-icon">&#8597;</i></span>
+                                    </th>
+                                    <th class="sortable">
+                                        <span class="th-inner">Source <i class="sort-icon">&#8597;</i></span>
+                                    </th>
+                                    <th class="note-col sortable">
+                                        <span class="th-inner">Note <i class="sort-icon">&#8597;</i></span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                @if (Model.StaffAttendance != null && Model.StaffAttendance.Any())
+                                {
+                                    int sNo = 1;
+                                    @foreach (var c in Model.StaffAttendance)
+                                    {
+                                        bool isPresent = c.StaffAttendance == "P" || c.StaffAttendance == null;
+                                        bool isLate = c.StaffAttendance == "L";
+                                        bool isAbsent = c.StaffAttendance == "A";
+                                        bool isHalfDay = c.StaffAttendance == "HD";
+                                        bool isLeave = (c.StaffAttendance == "H") || (c.IsStudentLeaveAdd == true);
+                                        <tr class="item-row attendance-row" data-staff-id="@c.StaffID" onclick="selectItem(@c.StaffID, this)" style="cursor: pointer;">
+                                            <td>@sNo</td>
+                                            <td>@c.StaffName</td>
+                                            <td>@c.RoleName</td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                                <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StaffID)" value="P" checked="@(isPresent ? "checked" : null)">
+                                            </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                                <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StaffID)" value="L" checked="@(isLate ? "checked" : null)">
+                                            </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                                <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StaffID)" value="A" checked="@(isAbsent ? "checked" : null)">
+                                            </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                                <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StaffID)" value="HD" checked="@(isHalfDay ? "checked" : null)">
+                                            </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                                <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StaffID)" value="H" checked="@(isLeave ? "checked" : null)">
+                                            </td>
+                                            <td>
+                                                @(c.StaffAttendanceDate != null
+                                                    ? c.StaffAttendanceDate.Value.ToString("dd-MM-yyyy")
+                                                    : Model.AttendanceDate?.ToString("dd-MM-yyyy"))
+                                            </td>
+                                            <td>Manual</td>
+                                            <td class="text-end" onclick="event.stopPropagation();">
+                                                <input type="text" style="width:200px" class="form-control attendance-note" value="@(string.IsNullOrWhiteSpace(c.StaffAttendanceNote) ? c.StaffAttendanceSource : c.StaffAttendanceNote)" />
+                                            </td>
+                                        </tr>
+                                        sNo++;
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="12" class="text-center py-4">
+                                            <span class="text-muted">No records found</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                   
+                    @if (totalRecords > 0)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@firstRecord</strong>
+                                –
+                                <strong>@lastRecord</strong>
+                                of
+                                <strong>@totalRecords</strong>
+                                main menus
+                            </div>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Menu pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        @{
+                                            var firstUrl =
+                                            $"?pageIndex=1&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionID}";
+
+                                            var previousPage = Math.Max(1, currentPage - 1);
+
+                                            var previousUrl =
+                                            $"?pageIndex={previousPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionID}";
+                                        }
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@firstUrl"
+                                               aria-label="First page">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@previousUrl"
+                                               aria-label="Previous page">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @{
+                                            var startPage = Math.Max(1, currentPage - 2);
+                                            var endPage = Math.Min(totalPages, startPage + 4);
+
+                                            if (endPage - startPage < 4)
+                                            {
+                                                startPage = Math.Max(1, endPage - 4);
+                                            }
+                                        }
+
+                                        @for (var pg = startPage; pg <= endPage; pg++)
+                                        {
+                                            var pageUrl =
+                                            $"?pageIndex={pg}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionID}";
+
+                                            <li class="page-item @(pg == currentPage ? "active" : "")">
+                                                <a class="page-link"
+                                                   href="@pageUrl"
+                                                   aria-current="@(pg == currentPage ? "page" : null)">
+                                                    @pg
+                                                </a>
+                                            </li>
+                                        }
+
+                                        @{
+                                            var nextPage = Math.Min(totalPages, currentPage + 1);
+
+                                            var nextUrl =
+                                            $"?pageIndex={nextPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            var lastUrl =
+                                            $"?pageIndex={totalPages}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@nextUrl"
+                                               aria-label="Next page">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@lastUrl"
+                                               aria-label="Last page">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            }
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+        <!-- end card-body -->
+    </div>
+    <!-- end card -->
+</div>

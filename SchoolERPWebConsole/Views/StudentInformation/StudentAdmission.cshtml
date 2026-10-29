@@ -1,0 +1,932 @@
+@using Microsoft.AspNetCore.Html
+@using SchoolERPWebConsole.Domain
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@model List<SchoolERPWebConsole.Domain.FieldModel>
+@functions {
+    // Helper to get existing value for a field
+    string GetVal(string fieldName, SchoolERPWebConsole.Domain.StudentDetailsViewModel student)
+    {
+        if (student == null) return "";
+        var name = (fieldName ?? "").ToLower().Trim();
+
+        // 1. Family Members First (to avoid overlap with general 'mobile', 'email', etc.)
+        if (name.Contains("father"))
+        {
+            if (name.Contains("name")) return student.BasicInfo.FatherName ?? "";
+            if (name.Contains("phone") || name.Contains("mobile")) return student.BasicInfo.FatherPhone ?? "";
+            if (name.Contains("occupation")) return student.BasicInfo.FatherOccupation ?? "";
+            return "";
+        }
+        if (name.Contains("mother"))
+        {
+            if (name.Contains("name")) return student.BasicInfo.MotherName ?? "";
+            if (name.Contains("phone") || name.Contains("mobile")) return student.BasicInfo.MotherPhone ?? "";
+            if (name.Contains("occupation")) return student.BasicInfo.MotherOccupation ?? "";
+            return "";
+        }
+        if (name.Contains("guardian") || name.Contains("gardian"))
+        {
+            // if (name.Contains("address is current")) return student.BasicInfo.IfGuardianAddressIsCurrent ? "true" : "false";
+            // if (name.Contains("address")) return student.BasicInfo.GuardianAddress ?? "";
+            if (name.Contains("name")) return student.BasicInfo.GuardianName ?? "";
+            if (name.Contains("phone") || name.Contains("mobile")) return student.BasicInfo.GuardianPhone ?? "";
+            if (name.Contains("occupation")) return student.BasicInfo.GuardianOccupation ?? "";
+            if (name.Contains("email")) return student.BasicInfo.GuardianEmail ?? "";
+            if (name.Contains("relation")) return student.BasicInfo.GuardianRelation ?? "";
+            if (name.Contains("if guardian is")) return student.BasicInfo.IfGuardianIs ?? "";
+            return "";
+        }
+
+        // 2. Specific Student Basic Info
+        if (name == "roll no" || name == "rollno") return student.BasicInfo.RollNo ?? "";
+        if (name == "admission no" || name == "admissionno") return student.BasicInfo.AdmissionNo ?? "";
+        if (name.Contains("first name")) return student.BasicInfo.FirstName ?? "";
+        if (name.Contains("middle name")) return student.BasicInfo.MiddleName ?? "";
+        if (name.Contains("last name")) return student.BasicInfo.LastName ?? "";
+        if (name.Contains("gender")) return student.BasicInfo.Gender ?? "";
+        if (name.Contains("dob") || name.Contains("birth") || name.Contains("date of birth")) return student.BasicInfo.DOB?.ToString("yyyy-MM-dd") ?? "";
+        if (name == "religion") return student.BasicInfo.Religion ?? "";
+        if (name == "caste") return student.BasicInfo.Caste ?? "";
+        if (name == "mobile number" || name == "mobile no" || name == "mobile") return student.BasicInfo.MobileNo ?? "";
+        if (name == "email") return student.BasicInfo.Email ?? "";
+        if (name.Contains("admission date")) return student.BasicInfo.AdmissionDate?.ToString("yyyy-MM-dd") ?? "";
+        if (name.Contains("blood")) return student.BasicInfo.BloodGroup ?? "";
+        if (name.Contains("height")) return student.BasicInfo.Height ?? "";
+        if (name.Contains("weight")) return student.BasicInfo.Weight ?? "";
+        if (name == "class") return student.BasicInfo.ClassID == 0 ? "" : student.BasicInfo.ClassID.ToString();
+        if (name == "section") return student.BasicInfo.SectionID == 0 ? "" : student.BasicInfo.SectionID.ToString();
+        if (name.Contains("category")) return student.BasicInfo.CategoryID == 0 ? "" : student.BasicInfo.CategoryID.ToString();
+        if (name.Contains("house")) return student.BasicInfo.HouseID?.ToString() ?? "";
+
+        // 3. Transport & Hostel
+        if (name == "route list")
+        {
+            var vid = student.Transport?.VehicleID ?? 0;
+            return vid != 0 ? vid.ToString() : (student.Transport?.RouteID?.ToString() ?? "");
+        }
+        if (name == "transportrouteid") return student.Transport?.RouteID?.ToString() ?? "";
+        if (name.Contains("pickup")) return student.Transport?.PickupPointID?.ToString() ?? "";
+        if (name.Contains("fees month") || name == "month") return student.Transport?.StartMonth ?? "";
+        if (name.Contains("hostel") && !name.Contains("room")) return student.Hostel?.HostelID?.ToString() ?? "";
+        if (name.Contains("room no") || name == "room") return student.Hostel?.RoomID?.ToString() ?? "";
+
+        // 4. Addresses
+        if (name.Contains("current address")) return student.Addresses.FirstOrDefault(a => a.AddressType == "Current")?.AddressDetails ?? "";
+        if (name.Contains("permanent address")) return student.Addresses.FirstOrDefault(a => a.AddressType == "Permanent")?.AddressDetails ?? "";
+
+        // 5. Credentials
+        if (name.Contains("student username")) return student.BasicInfo.StudentUsername ?? "";
+        if (name.Contains("student password")) return student.BasicInfo.StudentPassword ?? "";
+        if (name.Contains("parent username")) return student.BasicInfo.ParentUsername ?? "";
+        if (name.Contains("parent password")) return student.BasicInfo.ParentPassword ?? "";
+
+        // 6. Custom Fields (Try exact match)
+        var custom = student.CustomFields.FirstOrDefault(f => f.FieldName.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
+        if (custom != null) return custom.FieldValue ?? "";
+
+        return "";
+    }
+
+    // Returns the stored path/URL of an already-uploaded photo, if any, so the
+    // edit form can show a preview instead of a blank file picker.
+    // NOTE: adjust the BasicInfo property names below if your ViewModel names
+    // these differently (they're assumed to mirror TBL_MST_STUDENTS'
+    // STUDENTPHOTO / FATHERPHOTO / MOTHERPHOTO / GUARDIANPHOTO path columns).
+    string GetPhotoUrl(string fieldName, SchoolERPWebConsole.Domain.StudentDetailsViewModel student)
+    {
+        if (student?.BasicInfo == null) return "";
+        var name = (fieldName ?? "").ToLower();
+
+        if (!name.Contains("photo")) return "";
+
+        if (name.Contains("father")) return student.BasicInfo.FatherPhoto ?? "";
+        if (name.Contains("mother")) return student.BasicInfo.MotherPhoto ?? "";
+        if (name.Contains("guardian")) return student.BasicInfo.GuardianPhoto ?? "";
+        if (name.Contains("student")) return student.BasicInfo.StudentPhoto ?? "";
+
+        return "";
+    }
+
+    // Helper to get fields for a specific tab
+    List<FieldModel> GetFields(string category, List<FieldModel> model)
+    {
+        if (model == null || !model.Any()) return new List<FieldModel>();
+
+        // Local helper for case-insensitive matching
+        Func<string, string[], bool> IsMatch = (name, terms) =>
+            terms.Any(t => (name ?? "").Contains(t, StringComparison.OrdinalIgnoreCase));
+
+        var allActive = model.Where(f => f.IsActive).ToList();
+
+        if (category == "Basic")
+        {
+            return allActive.Where(f => (f.IsSystemField && IsMatch(f.FieldName, new[] { "Roll", "Class", "Section", "First", "Middle", "Last", "Gender", "DOB", "Birth", "Category", "Religion", "Caste", "Mobile", "Email", "Admission", "Blood", "House", "Height", "Weight", "Measurement", "Scholar", "Enroll", "Photo" })
+                                     && !IsMatch(f.FieldName, new[] { "Father", "Mother", "Guardian", "User", "Pass", "Bank", "IFSC", "National", "Local", "RTE", "Previous", "Note" }))
+                                     || (!f.IsSystemField && f.DisplayOrder < 100)).OrderBy(f => f.DisplayOrder).ToList();
+        
+        }
+        else if (category == "Transport")
+        {
+            return allActive.Where(f => f.IsSystemField && IsMatch(f.FieldName, new[] { "Route", "Pickup", "Month" })).OrderBy(f => f.DisplayOrder).ToList();
+        }
+        else if (category == "Hostel")
+        {
+            return allActive.Where(f => f.IsSystemField && IsMatch(f.FieldName, new[] { "Hostel", "Room" })).OrderBy(f => f.DisplayOrder).ToList();
+        }
+        else if (category == "Guardian")
+        {
+            return allActive.Where(f => f.IsSystemField && IsMatch(f.FieldName, new[] { "Father", "Mother", "Guardian" })).OrderBy(f => f.DisplayOrder).ToList();
+        }
+        else if (category == "Misc")
+        {
+            // Miscellaneous includes custom fields AND specific system fields like Bank details (DisplayOrder >= 100)
+            return allActive.Where(f => f.DisplayOrder >= 100 || IsMatch(f.FieldName, new[] { "Bank", "IFSC", "National", "Local", "RTE", "Previous", "Note" }))
+                            .OrderBy(f => f.DisplayOrder).ToList();
+        }
+
+        return new List<FieldModel>();
+    }
+
+    // Local function for rendering fields
+    IHtmlContent RenderField(FieldModel field, StudentDetailsViewModel student, dynamic viewBag)
+    {
+        var builder = new HtmlContentBuilder();
+        if (field == null) return builder;
+
+        var name = field.FieldName ?? "";
+        var grid = field.GridColumn > 0 ? field.GridColumn : 3;
+        var lowerName = name.ToLower();
+        // Last Name must always be required, regardless of how it is configured in
+        // Settings > System Fields, since it is core to a student's legal name.
+        // var isForcedRequired = lowerName.Contains("last name");
+        // var isMobileField = lowerName == "mobile" || lowerName == "mobile no" || lowerName == "mobile number";
+        var isDobField = lowerName.Contains("dob") || lowerName.Contains("date of birth");
+        var isAdmissionDateField = lowerName.Contains("admission date");
+        var isMobileField = lowerName == "mobile" || lowerName == "mobile no" || lowerName == "mobile number";
+
+        var isForcedRequired = lowerName.Contains("last name")
+                        || isDobField
+                        || isAdmissionDateField
+                        || isMobileField;
+
+        var reqStar = (field.IsRequired || isForcedRequired) ? "<span class='text-danger'>*</span>" : "";
+        var req = (field.IsRequired || isForcedRequired) ? "required" : "";
+        var type = (field.FieldType ?? "text").ToLower();
+        var existingVal = GetVal(name, student);
+
+        builder.AppendHtml($@"<div class='col-md-{grid} mb-3' data-fieldname='{name}'>
+                                <label class='form-label'>{name} {reqStar}</label>");
+
+        // 1. Special Handling for Class
+        if (lowerName.Contains("class") && !lowerName.Contains("section"))
+        {
+            var classes = (viewBag.Classes as List<MstClassViewModel>) ?? new List<MstClassViewModel>();
+            builder.AppendHtml($"<select id='ddlClass' name='{name}' class='form-select form-control' {req}><option value=''>Select Class</option>");
+            foreach (var cls in classes)
+            {
+                var selected = existingVal == cls.ClassID.ToString() ? "selected" : "";
+                builder.AppendHtml($"<option value='{cls.ClassID}' {selected}>{cls.ClassName}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 2. Special Handling for Section
+        else if (lowerName.Contains("section"))
+        {
+            builder.AppendHtml($"<select id='ddlSection' name='{name}' class='form-select form-control' {req} data-selected='{existingVal}'><option value=''>Select Section</option></select>");
+        }
+        // 3. Special Handling for Category Dropdown
+        else if (lowerName.Contains("category"))
+        {
+            var categories = (viewBag.Categories as List<StudentCategoryViewModel>) ?? new List<StudentCategoryViewModel>();
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select Category</option>");
+            foreach (var cat in categories)
+            {
+                var selected = existingVal == cat.StudentCategoryID.ToString() ? "selected" : "";
+                builder.AppendHtml($"<option value='{cat.StudentCategoryID}' {selected}>{cat.StudentCategoryName}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 4. Special Handling for House Dropdown
+        else if (lowerName.Contains("house"))
+        {
+            var houses = (viewBag.Houses as List<StudentHouseViewModel>) ?? new List<StudentHouseViewModel>();
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select House</option>");
+            foreach (var house in houses)
+            {
+                var selected = existingVal == house.StudentHouseID.ToString() ? "selected" : "";
+                builder.AppendHtml($"<option value='{house.StudentHouseID}' {selected}>{house.StudentHouseName}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 5. Special Handling for Blood Group
+        else if (lowerName.Contains("blood group"))
+        {
+            var bloodGroups = new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" };
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select Blood Group</option>");
+            foreach (var bg in bloodGroups)
+            {
+                var selected = existingVal == bg ? "selected" : "";
+                builder.AppendHtml($"<option value='{bg}' {selected}>{bg}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 6. Special Handling for Religion
+        else if (lowerName.Contains("religion"))
+        {
+            var religions = new[] { "Hindu", "Muslim", "Sikh", "Christian", "Buddhist", "Jain", "Parsi", "Other" };
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select Religion</option>");
+            foreach (var r in religions)
+            {
+                var selected = existingVal == r ? "selected" : "";
+                builder.AppendHtml($"<option value='{r}' {selected}>{r}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 7. Special Handling for Hostel
+        else if (lowerName.Contains("hostel") && !lowerName.Contains("room"))
+        {
+            var hostels = (viewBag.Hostels as List<HostelViewModel>) ?? new List<HostelViewModel>();
+            builder.AppendHtml($"<select id='ddlHostel' name='{name}' class='form-select form-control' {req}><option value=''>Select Hostel</option>");
+            foreach (var hostel in hostels)
+            {
+                var selected = existingVal == hostel.HostelID.ToString() ? "selected" : "";
+                builder.AppendHtml($"<option value='{hostel.HostelID}' {selected}>{hostel.HostelName}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 8. Special Handling for Room No
+        else if (lowerName.Contains("room no"))
+        {
+            builder.AppendHtml($"<select id='ddlHostelRoom' name='{name}' class='form-select form-control' {req} data-selected='{existingVal}'><option value=''>Select Room</option></select>");
+        }
+        // 9. Special Handling for If Guardian Is (Radio)
+        else if (lowerName.Contains("if guardian is"))
+        {
+            builder.AppendHtml("<div class='mt-2'>");
+            var options = new[] { "Father", "Mother", "Other" };
+            foreach (var opt in options)
+            {
+                var isChecked = existingVal == opt ? "checked" : "";
+                builder.AppendHtml($@"<div class='form-check form-check-inline'>
+                                <input class='form-check-input rb-guardian-type' type='radio' name='{name}' value='{opt}' id='rb_{opt}' {isChecked}>
+                                <label class='form-check-label' for='rb_{opt}'>{opt}</label>
+                            </div>");
+            }
+            builder.AppendHtml("</div>");
+        }
+        // 10. Special Handling for Guardian Relation (to give it an ID)
+        else if (lowerName.Contains("relation"))
+        {
+            var readonlyAttr = (existingVal == "Father" || existingVal == "Mother") ? "readonly" : "";
+            builder.AppendHtml($"<input type='text' id='txtGuardianRelation' name='{name}' class='form-control' {req} value='{existingVal}' {readonlyAttr}>");
+        }
+        // 11. Special Handling for Route (Linked to Bus/Vehicle)
+        // else if (lowerName.Contains("route list"))
+        // {
+        //     var assignments = (viewBag.VehicleAssignments as List<VehicleAssignViewModel>) ?? new List<VehicleAssignViewModel>();
+        //     var grouped = assignments.GroupBy(a => a.RouteName).OrderBy(g => g.Key);
+        //     var routeVal = GetVal("transportrouteid", student);
+
+        //     builder.AppendHtml($"<input type='hidden' id='hdnTransportRouteID' name='TransportRouteID' value='{routeVal}'>");
+        //     builder.AppendHtml($"<select id='ddlRoute' name='{name}' class='form-select form-control' {req}><option value=''>Select Bus/Route</option>");
+        //     foreach (var group in grouped)
+        //     {
+        //         builder.AppendHtml($"<optgroup label='{group.Key}'>");
+        //         foreach (var assign in group)
+        //         {
+        //             var selected = existingVal == assign.VehicleID.ToString() ? "selected" : "";
+        //             builder.AppendHtml($"<option value='{assign.VehicleID}' data-routeid='{assign.RouteID}' {selected}>{assign.VehicleNumber} ({assign.VehicleModel})</option>");
+        //         }
+        //         builder.AppendHtml("</optgroup>");
+        //     }
+        //     builder.AppendHtml("</select>");
+        // }
+        // 11. Special Handling for Route (Linked to Bus/Vehicle)
+        else if (lowerName.Contains("route list"))
+        {
+            var assignments = (viewBag.VehicleAssignments as List<VehicleAssignViewModel>) ?? new List<VehicleAssignViewModel>();
+
+            // Filter out empty/invalid rows so we don't render blank "()" options
+            var validAssignments = assignments
+                .Where(a => a != null
+                            && a.VehicleID > 0
+                            && !string.IsNullOrWhiteSpace(a.VehicleNumber))
+                .ToList();
+
+            var grouped = validAssignments
+                .Where(a => !string.IsNullOrWhiteSpace(a.RouteName))
+                .GroupBy(a => a.RouteName)
+                .OrderBy(g => g.Key);
+
+            var routeVal = GetVal("transportrouteid", student);
+
+            builder.AppendHtml($"<input type='hidden' id='hdnTransportRouteID' name='TransportRouteID' value='{routeVal}'>");
+
+            if (!validAssignments.Any())
+            {
+                // Nothing to select from
+                builder.AppendHtml($"<select id='ddlRoute' name='{name}' class='form-select form-control' {req}>");
+                builder.AppendHtml("<option value='' disabled selected>No routes available</option>");
+                builder.AppendHtml("</select>");
+            }
+            else
+            {
+                builder.AppendHtml($"<select id='ddlRoute' name='{name}' class='form-select form-control' {req}><option value=''>Select Bus/Route</option>");
+                foreach (var group in grouped)
+                {
+                    builder.AppendHtml($"<optgroup label='{group.Key}'>");
+                    foreach (var assign in group)
+                    {
+                        var selected = existingVal == assign.VehicleID.ToString() ? "selected" : "";
+                        var vehicleLabel = string.IsNullOrWhiteSpace(assign.VehicleModel)
+                            ? assign.VehicleNumber
+                            : $"{assign.VehicleNumber} ({assign.VehicleModel})";
+
+                        builder.AppendHtml($"<option value='{assign.VehicleID}' data-routeid='{assign.RouteID}' {selected}>{vehicleLabel}</option>");
+                    }
+                    builder.AppendHtml("</optgroup>");
+                }
+                builder.AppendHtml("</select>");
+            }
+        }
+
+        // 12. Special Handling for Pickup Point
+        else if (lowerName.Contains("pickup point"))
+        {
+            builder.AppendHtml($"<select id='ddlPickupPoint' name='{name}' class='form-select form-control' {req} data-selected='{existingVal}'><option value=''>Select Pickup Point</option></select>");
+        }
+        // 13. Special Handling for Fees Month
+        else if (lowerName.Contains("fees month"))
+        {
+            var months = new[] { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select Month</option>");
+            foreach (var m in months)
+            {
+                var selected = existingVal == m ? "selected" : "";
+                builder.AppendHtml($"<option value='{m}' {selected}>{m}</option>");
+            }
+            builder.AppendHtml("</select>");
+        }
+        // 14. MOBILE / PHONE / CONTACT VALIDATION
+        // Applies to Father/Mother/Guardian Phone & Mobile, plus the main student Mobile field,
+        // regardless of the FieldType configured in the database (fixes the bug where phone
+        // fields stored as FieldType="text" had no validation at all).
+        else if (lowerName.Contains("mobile") || lowerName.Contains("phone") || lowerName.Contains("contact"))
+        {
+            builder.AppendHtml($@"<input type='text' name='{name}' class='form-control' {req}
+                                    inputmode='numeric' maxlength='10'
+                                    pattern='^[6-9][0-9]{{9}}$'
+                                    title='Enter a valid 10-digit mobile number (must start with 6-9).'
+                                    value='{existingVal}'
+                                    oninput='this.value=this.value.replace(/[^0-9]/g,&quot;&quot;).slice(0,10)'>");
+        }
+        // 15. EMAIL VALIDATION
+        // Applies to any field whose name contains "email" (Email, Guardian Email, etc.),
+        // regardless of configured FieldType.
+        else if (lowerName.Contains("email"))
+        {
+            builder.AppendHtml($@"<input type='email' name='{name}' class='form-control' {req}
+                                    pattern='^[^\s@]+@[^\s@]+\.[^\s@]+$'
+                                    title='Enter a valid email address.'
+                                    value='{existingVal}'>");
+        }
+        // 16. DATE OF BIRTH VALIDATION
+        // Cannot be a future date; capped at 100 years back so an obviously wrong year can't be typed.
+        else if (lowerName.Contains("dob") || lowerName.Contains("date of birth"))
+        {
+            builder.AppendHtml($@"<input type='date' name='{name}' class='form-control' {req}
+                                    max='{DateTime.Today:yyyy-MM-dd}'
+                                    min='{DateTime.Today.AddYears(-100):yyyy-MM-dd}'
+                                    value='{existingVal}'>");
+        }
+        // 17. ADMISSION DATE VALIDATION
+        // Cannot be a future date.
+        else if (lowerName.Contains("admission date"))
+        {
+            builder.AppendHtml($@"<input type='date' name='{name}' class='form-control' {req}
+                                    max='{DateTime.Today:yyyy-MM-dd}'
+                                    value='{existingVal}'>");
+        }
+        // 18. Standard Field Rendering (fallback based on configured FieldType)
+        else if (type == "input" || type == "text")
+        {
+            var isRollNo = lowerName.Contains("roll");
+            var isAuto = isRollNo && (viewBag.IsRollAutoGenerated ?? false);
+            var readonlyAttr = isAuto ? "readonly" : "";
+            var placeholder = isAuto ? "placeholder='Auto Generated'" : "";
+            var val = isAuto && string.IsNullOrEmpty(existingVal) ? (viewBag.NextRollNo ?? "") : existingVal;
+            builder.AppendHtml($"<input type='text' name='{name}' class='form-control' {req} {readonlyAttr} {placeholder} value='{val}'>");
+        }
+        else if (type == "number")
+        {
+            builder.AppendHtml($"<input type='number' name='{name}' class='form-control' {req} value='{existingVal}'>");
+        }
+        else if (type == "date")
+            builder.AppendHtml($"<input type='date' name='{name}' class='form-control' {req} value='{existingVal}'>");
+        else if (type == "email")
+            builder.AppendHtml($@"<input type='email' name='{name}' class='form-control' {req}
+                                    pattern='^[^\s@]+@[^\s@]+\.[^\s@]+$'
+                                    title='Enter a valid email address.'
+                                    value='{existingVal}'>");
+        else if (type == "textarea")
+            builder.AppendHtml($"<textarea name='{name}' class='form-control' rows='3' {req}>{existingVal}</textarea>");
+        else if (type == "select" || type == "dropdown")
+        {
+            builder.AppendHtml($"<select name='{name}' class='form-select form-control' {req}><option value=''>Select</option>");
+            if (!string.IsNullOrEmpty(field.FieldValues))
+            {
+                foreach (var val in field.FieldValues.Split(','))
+                {
+                    var trimmed = val.Trim();
+                    var selected = existingVal == trimmed ? "selected" : "";
+                    builder.AppendHtml($"<option value='{trimmed}' {selected}>{trimmed}</option>");
+                }
+            }
+            builder.AppendHtml("</select>");
+        }
+        else if (type == "checkbox")
+        {
+            if (string.IsNullOrEmpty(field.FieldValues) || field.FieldValues == "true" || field.FieldValues == "false")
+            {
+                // Single Toggle Checkbox (e.g., RTE)
+                var isChecked = (existingVal == "true" || field.FieldValues == "true") ? "checked" : "";
+                builder.AppendHtml($"<div class='form-check mt-2'><input type='checkbox' name='{name}' class='form-check-input' {isChecked} {req} value=''> <span class='text-muted'>(Check if applicable)</span></div>");
+            }
+            else
+            {
+                // Multi-select Checkbox List
+                builder.AppendHtml("<div class='mt-2'>");
+                var selectedVals = (existingVal ?? "").Split(',').Select(v => v.Trim()).ToList();
+                foreach (var val in field.FieldValues.Split(','))
+                {
+                    var trimmed = val.Trim();
+                    var isChecked = selectedVals.Contains(trimmed) ? "checked" : "";
+                    builder.AppendHtml($"<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' name='{name}' value='{trimmed}' id='chk_{name}_{trimmed}' {isChecked}><label class='form-check-label' for='chk_{name}_{trimmed}'>{trimmed}</label></div>");
+                }
+                builder.AppendHtml("</div>");
+            }
+        }
+        else if (type == "radio")
+        {
+            builder.AppendHtml("<div class='form-check'>");
+            if (!string.IsNullOrEmpty(field.FieldValues))
+            {
+                foreach (var val in field.FieldValues.Split(','))
+                {
+                    var trimmed = val.Trim();
+                    var isChecked = existingVal == trimmed ? "checked" : "";
+                    builder.AppendHtml($"<div class='form-check form-check-inline'><input class='form-check-input' type='radio' name='{name}' value='{trimmed}' {req} {isChecked}><label class='form-check-label'>{trimmed}</label></div>");
+                }
+            }
+            builder.AppendHtml("</div>");
+        }
+        else if (type == "file" || type == "photo" || lowerName.Contains("photo"))
+        {
+            var photoUrl = GetPhotoUrl(name, student);
+            var hasPhoto = !string.IsNullOrEmpty(photoUrl);
+            var fileName = hasPhoto ? System.IO.Path.GetFileName(photoUrl) : "";
+            var fieldKey = System.Text.RegularExpressions.Regex.Replace(name, @"\s+", "");
+            var hiddenClass = hasPhoto ? "" : "d-none";   // computed outside the interpolated string
+
+            builder.AppendHtml($@"<input type='file' name='{name}' class='form-control' accept='image/*' data-photo-field='{fieldKey}'>
+                          <input type='hidden' name='{name}_Remove' id='hdn_{fieldKey}_Remove' value='false'>");
+
+            builder.AppendHtml($@"<div class='existing-file-row d-flex align-items-center gap-2 mt-2 {hiddenClass}' id='row_{fieldKey}'>
+                            <a href='{photoUrl}' target='_blank' rel='noopener' class='small text-truncate' id='link_{fieldKey}' style='max-width:220px;'>
+                                <i class='ti ti-paperclip me-1'></i>{fileName}
+                            </a>
+                            <button type='button' class='btn btn-sm btn-link text-danger p-0 remove-existing-file' data-target='{fieldKey}' title='Remove'>
+                                <i class='ti ti-x'></i>
+                            </button>
+                          </div>");
+        }
+        else
+            builder.AppendHtml($"<input type='text' name='{name}' class='form-control' {req} value='{existingVal}'>");
+
+        builder.AppendHtml($@"<div class='invalid-feedback'>Please provide a valid {name}.</div>
+                            </div>");
+        return builder;
+    }
+}
+@{
+    ViewData["Title"] = "Student Admission";
+    var student = ViewBag.StudentDetails as StudentDetailsViewModel;
+    bool isEdit = ViewBag.IsEdit ?? false;
+}
+
+<style>
+    /* Page-specific: the tabs bar sits directly below the shared .sticky-toolbar.
+                       Kept separate from .sticky-toolbar's own flex row (that CSS is built for
+                       exactly two children — title + .responsive-btn-group — adding a third
+                       child there squeezes all of them into one crowded line, which is what
+                       was crushing Save/Back into a stacked column and wrapping the tabs). */
+    .tabs-sticky-bar {
+        position: static;
+        top: 0; /* JS overrides this immediately */
+        z-index: 1040;
+        padding-bottom: 8px;
+        transition: top .12s ease;
+    }
+
+    .tab-scroll {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        -ms-overflow-style: none;
+        margin-bottom: 0;
+        padding-bottom: 4px;
+    }
+
+        .tab-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .tab-scroll::-webkit-scrollbar-thumb {
+            background: #ced4da;
+            border-radius: 4px;
+        }
+
+        .tab-scroll .nav-item {
+            flex: 0 0 auto;
+        }
+
+        .tab-scroll .nav-link {
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+    .form-control.is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+</style>
+
+<!-- Page Header: title + action buttons only (matches shared .sticky-toolbar's 2-child layout) -->
+<div class="sticky-toolbar d-flex align-items-center justify-content-between gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Student Admission</h6>
+    </div>
+    <div class="responsive-btn-group d-inline-flex align-items-center gap-2">
+        <button type="submit" form="admissionForm" class="btn btn-success d-inline-flex align-items-center top-btn"><i class="ti ti-cloud me-1"></i> @(isEdit ? "Update" : "Save")</button>
+        @* <a href="/StudentInformation/ImportStudent" class="btn btn-primary d-inline-flex align-items-center"><i class="ti ti-upload me-1"></i> Import Student</a> *@
+        @* 
+        <a href="/StudentInformation/Students" class="btn btn-secondary d-inline-flex align-items-center top-btn"><i class="ti ti-arrow-left me-1"></i> Back</a> *@
+    </div>
+</div>
+
+<!-- Tabs: own sticky bar directly under the toolbar (top offset set by JS below) -->
+<div class="tabs-sticky-bar" id="tabsStickyBar">
+    <ul class="nav nav-pills gap-2 tab-scroll">
+        <li class="nav-item"><a href="#basicInfo" data-bs-toggle="pill" class="nav-link active">Basic Info</a></li>
+        <li class="nav-item"><a href="#transportInfo" data-bs-toggle="pill" class="nav-link">Transport</a></li>
+        <li class="nav-item"><a href="#hostelInfo" data-bs-toggle="pill" class="nav-link">Hostel</a></li>
+        <li class="nav-item"><a href="#fees" data-bs-toggle="pill" class="nav-link">Fees Details</a></li>
+        <li class="nav-item"><a href="#parentGurdian" data-bs-toggle="pill" class="nav-link">Parent Guardian</a></li>
+        <li class="nav-item"><a href="#addressInfo" data-bs-toggle="pill" class="nav-link">Address</a></li>
+        <li class="nav-item"><a href="#misce" data-bs-toggle="pill" class="nav-link">Miscellaneous</a></li>
+        <li class="nav-item"><a href="#uploadDoc" data-bs-toggle="pill" class="nav-link">Upload Documents</a></li>
+    </ul>
+</div>
+
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card shadow-tbl-outer">
+
+            <div class="card-body">
+                <form id="admissionForm" class="needs-validation" novalidate>
+
+                    <input type="hidden"
+                           id="hdnIsEdit"
+                           value="@((ViewBag.IsEdit ?? false).ToString().ToLower())" />
+                    <input type="hidden"
+                           id="hdnIsRollAutoGenerated"
+                           value="@((ViewBag.IsRollAutoGenerated ?? false).ToString().ToLower())" />
+                    <input type="hidden" id="hdnStudentID" value="@(student?.BasicInfo?.StudentID ?? 0)" />
+                    <input type="hidden" name="ParentUserID" id="hdnParentUserID" value="@(student?.BasicInfo?.ParentUserID ?? 0)" />
+                    @Html.AntiForgeryToken()
+                    @if (Model == null || !Model.Any())
+                    {
+                        <div class="alert alert-warning m-3">
+                            <i class="ti ti-alert-triangle me-1"></i> No active fields found for Student Admission.
+                            Please ensure that fields are configured and marked as <strong>Active</strong> in
+                            <a href="/Settings/SystemFields" class="alert-link">Settings > System Fields</a> or
+                            <a href="/Settings/CustomFields" class="alert-link">Custom Fields</a>.
+                        </div>
+                    }
+                    <div class="tab-content">
+                        <!-- Basic Info -->
+                        <div class="tab-pane active" id="basicInfo">
+                            <div class="row">
+                                @* Fixed Basic Fields *@
+                                @RenderField(new FieldModel { FieldName = "Roll No", FieldType = "input", GridColumn = 3 }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Class", FieldType = "select", GridColumn = 3, IsRequired = true }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Section", FieldType = "select", GridColumn = 3, IsRequired = true }, student, ViewBag)
+
+                                @foreach (var field in GetFields("Basic", Model))
+                                {
+                                    // Skip fixed fields
+                                    var lowerName = (field.FieldName ?? "").ToLower();
+                                    if (lowerName.Contains("roll") || lowerName.Contains("class") || lowerName.Contains("section")) continue;
+
+                                    @RenderField(field, student, ViewBag)
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Transport Info -->
+                        <div class="tab-pane" id="transportInfo">
+                            <div class="row">
+                                @* Fixed Transport Fields *@
+                                @RenderField(new FieldModel { FieldName = "Route List", FieldType = "select", GridColumn = 4 }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Pickup Point", FieldType = "select", GridColumn = 4 }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Fees Month", FieldType = "select", GridColumn = 4 }, student, ViewBag)
+
+                                @foreach (var field in GetFields("Transport", Model))
+                                {
+                                    // Skip fields already rendered as fixed
+                                    var lowerName = (field.FieldName ?? "").ToLower();
+                                    if (lowerName.Contains("route") || lowerName.Contains("pickup") || lowerName.Contains("month")) continue;
+
+                                    @RenderField(field, student, ViewBag)
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Hostel Info -->
+                        <div class="tab-pane" id="hostelInfo">
+                            <div class="row">
+                                @* Fixed Hostel Fields *@
+                                @RenderField(new FieldModel { FieldName = "Hostel", FieldType = "select", GridColumn = 3 }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Room No", FieldType = "select", GridColumn = 3 }, student, ViewBag)
+
+                                @foreach (var field in GetFields("Hostel", Model))
+                                {
+                                    // Skip fields already rendered as fixed
+                                    var lowerName = (field.FieldName ?? "").ToLower();
+                                    if (lowerName.Contains("hostel") || lowerName.Contains("room")) continue;
+
+                                    @RenderField(field, student, ViewBag)
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Fees Details (Kept static for now as requested for field visibility only) -->
+                        <div class="tab-pane" id="fees">
+                            <div id="feesTemplateContainer">
+                                <div class="text-muted small p-2" id="feesTemplateEmpty">
+                                    Select a Class and Section to view applicable fees.
+                                </div>
+                            </div>
+                            <!-- Selected FeeTemplateIDs get read out of this container's
+                                 checkboxes on submit — see the submit handler below. -->
+                        </div>
+
+                        <!-- Parent Guardian -->
+                        <div class="tab-pane" id="parentGurdian">
+                            <div class="row pt-2 pb-3">
+                                <div class="col-12 d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#modalSibling">
+                                        <i class="ti ti-users me-1"></i> Link Sibling
+                                    </button>
+
+                                    @* Shown/hidden via JS: reflects that this student's Parent
+                                       account is being reused from a linked sibling, rather than
+                                       a new one being created on save. *@
+                                    <span id="siblingLinkedBadge" class="badge bg-success-subtle text-success border border-success d-none">
+                                        <i class="ti ti-link me-1"></i> Linked to existing parent account
+                                    </span>
+                                    <button type="button" id="btnUnlinkSibling" class="btn btn-outline-danger btn-sm d-none">
+                                        <i class="ti ti-unlink me-1"></i> Unlink Parent
+                                    </button>
+
+                                    <hr class="w-100" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                @* Render Father Fields first *@
+                                @foreach (var field in GetFields("Guardian", Model).Where(f => f.FieldName.Contains("Father", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    @RenderField(field, student, ViewBag)
+                                }
+
+                                @* Render Mother Fields *@
+                                @foreach (var field in GetFields("Guardian", Model).Where(f => f.FieldName.Contains("Mother", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    @RenderField(field, student, ViewBag)
+                                }
+
+                                <div class="col-12 mt-2 mb-3"><div class="bg-light p-2 fw-bold text-primary border-start border-primary border-4">Guardian Details</div></div>
+
+                                @* Fixed Guardian Selection *@
+                                @RenderField(new FieldModel { FieldName = "If Guardian Is", FieldType = "radio", GridColumn = 3 }, student, ViewBag)
+                                @RenderField(new FieldModel { FieldName = "Guardian Relation", FieldType = "input", GridColumn = 3, IsRequired = true }, student, ViewBag)
+
+                                @foreach (var field in GetFields("Guardian", Model).Where(f => f.FieldName.Contains("Guardian", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    // Skip fixed fields
+                                    var lowerName = (field.FieldName ?? "").ToLower();
+                                    if (lowerName.Contains("guardian is") || lowerName.Contains("relation")) continue;
+
+                                    @RenderField(field, student, ViewBag)
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Address Info -->
+                        @* <div class="tab-pane" id="addressInfo">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Current Address</label>
+                                    <textarea name="CurrentAddress" class="form-control" rows="3">@GetVal("Current Address", student)</textarea>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Permanent Address</label>
+                                    <textarea name="PermanentAddress" class="form-control" rows="3" required>@GetVal("Permanent Address", student)</textarea>
+                                </div>
+                            </div>
+                        </div> *@
+
+                        <!-- Address Info -->
+                        <div class="tab-pane" id="addressInfo">
+                            @{
+                                var countries = (ViewBag.Countries as List<CountryModel>) ?? new List<CountryModel>();
+                                var addrTypes = new[] { "Current", "Permanent" };
+                            }
+
+                            @foreach (var t in addrTypes)
+                            {
+                                // Assumes the address model has PostalCode, CountryId, StateId, CityId (see step 4)
+                                var addr = student?.Addresses?.FirstOrDefault(a => a.AddressType == t);
+                                var req = t == "Permanent" ? "required" : "";
+
+                                <div class="address-block mb-4" data-prefix="@t"
+                                     data-state="@(addr?.StateId)" data-city="@(addr?.CityId)">
+
+                                    <div class="bg-light p-2 fw-bold text-primary border-start border-primary border-4 mb-3 d-flex justify-content-between align-items-center">
+                                        <span>@t Address</span>
+                                        @if (t == "Permanent")
+                                        {
+                                            <div class="form-check mb-0 fw-normal">
+                                                <input class="form-check-input" type="checkbox" id="chkSameAsCurrent">
+                                                <label class="form-check-label small" for="chkSameAsCurrent">Same as Current Address</label>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Address @(t == "Permanent" ? Html.Raw("<span class='text-danger'>*</span>") : null)</label>
+                                            <textarea id="txt@(t)Address" name="@(t)Address" class="form-control" rows="3" @req>@(addr?.AddressDetails)</textarea>
+                                            <div class="invalid-feedback">Please provide a valid address.</div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3 position-relative">
+                                                    <label class="form-label">Pin Code</label>
+                                                    <input type="text" id="txt@(t)PinCode" name="@(t)PinCode" class="form-control"
+                                                           value="@(addr?.PostalCode)" autocomplete="off" inputmode="numeric"
+                                                           maxlength="6" pattern="[1-9][0-9]{5}" title="Enter a valid 6-digit pin code.">
+                                                    <ul id="pinSuggestions@(t)" class="pincode-dropdown list-group"></ul>
+                                                    <div class="invalid-feedback">Enter a valid 6-digit pin code.</div>
+                                                </div>
+
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="form-label">Country</label>
+                                                    <select id="ddl@(t)Country" name="@(t)CountryId" class="form-select form-control">
+                                                        <option value="">Select Country</option>
+                                                        @foreach (var c in countries)
+                                                        {
+                                                            <option value="@c.CountryId" selected="@(addr?.CountryId == c.CountryId)">@c.CountryName</option>
+                                                        }
+                                                    </select>
+                                                </div>
+
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="form-label">State</label>
+                                                    <select id="ddl@(t)State" name="@(t)StateId" class="form-select form-control">
+                                                        <option value="">Select State</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="col-md-6 mb-3">
+                                                    <label class="form-label">City</label>
+                                                    <select id="ddl@(t)City" name="@(t)CityId" class="form-select form-control">
+                                                        <option value="">Select City</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Miscellaneous -->
+                        <div class="tab-pane" id="misce">
+                            <div class="row">
+                                @foreach (var field in GetFields("Misc", Model))
+                                {
+                                    @RenderField(field, student, ViewBag)
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Upload Documents -->
+                        <div class="tab-pane" id="uploadDoc">
+                            @{
+                                // NOTE: assumes student.Documents is a List<> with DocumentTitle /
+                                // DocumentPath (mirrors tbl_student_documents). Adjust the property
+                                // names below if your StudentDetailsViewModel exposes them differently.
+                                var existingDocs = student?.Documents ?? new List<StudentDocumentViewModel>();
+                            }
+                            @if (existingDocs.Any())
+                            {
+                                <div class="alert alert-light border mb-3">
+                                    <div class="fw-bold mb-2"><i class="ti ti-files me-1"></i> Already Uploaded</div>
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach (var doc in existingDocs)
+                                        {
+                                            <li class="mb-1">
+                                                <a href="@doc.DocumentPath" target="_blank" rel="noopener">
+                                                    <i class="ti ti-file-description me-1"></i>@doc.DocumentTitle
+                                                </a>
+                                            </li>
+                                        }
+                                    </ul>
+                                    <div class="form-text mt-2">
+                                        Saving this form re-uploads only the slots below — existing documents
+                                        listed above are kept unless your workflow explicitly replaces them.
+                                    </div>
+                                </div>
+                            }
+                            <div class="row">
+                                @for (int i = 1; i <= 4; i++)
+                                {
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Document @i Title</label>
+                                            <input type="text" name="DocumentTitle_@i" class="form-control mb-2" placeholder="e.g. Birth Certificate">
+                                            <input type="file" name="DocumentFile_@i" class="form-control">
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sibling Search Modal -->
+<div class="modal fade" id="modalSibling" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title text-primary">Search Sibling</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Class</label>
+                        <select id="siblingClass" class="form-select">
+                            <option value="">Select Class</option>
+                            @foreach (var cls in (ViewBag.Classes as List<MstClassViewModel>) ?? new List<MstClassViewModel>())
+                            {
+                                <option value="@cls.ClassID">@cls.ClassName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Section</label>
+                        <select id="siblingSection" class="form-select">
+                            <option value="">Select Section</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Student</label>
+                        <select id="siblingStudent" class="form-select">
+                            <option value="">Select Student</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btnLinkSibling" class="btn btn-primary" disabled>Link & Copy Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/assets/plugins/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="~/js/inline-form-validation.js"></script>
+    <script src="~/assets/js/StudentAdmission.js"></script>
+}

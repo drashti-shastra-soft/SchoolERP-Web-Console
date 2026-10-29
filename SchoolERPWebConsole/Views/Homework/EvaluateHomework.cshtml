@@ -1,0 +1,606 @@
+﻿@model SchoolERPWebConsole.Domain.HomeworkEvaluateViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text.Encodings.Web
+
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Evaluate Homework";
+    var p = Model.Permissions;
+    const int MESSAGE_TRUNCATE_LENGTH = 50;
+    var submissionCount = Model.HomeworkSubmissions?.Count ?? 0;
+}
+
+<style>
+    /* ---------- Page header ---------- */
+    .evalhw-header {
+        background: #fff;
+        border: 1px solid #eef0f4;
+        border-radius: .75rem;
+        padding: .9rem 1.1rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+    }
+
+        .evalhw-header h6 {
+            font-size: 1.05rem;
+            letter-spacing: .2px;
+        }
+
+    .evalhw-date-group {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+    }
+
+        .evalhw-date-group label {
+            font-size: .72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .evalhw-date-group input[type="date"] {
+            min-width: 160px;
+        }
+
+    /* ---------- Cards ---------- */
+    .shadow-tbl-outer {
+        border: 1px solid #eef0f4;
+        border-radius: .75rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+        overflow: hidden;
+    }
+
+    .evalhw-card-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .85rem 1rem;
+        border-bottom: 1px solid #eef0f4;
+        background: #fafbfc;
+    }
+
+        .evalhw-card-title h6 {
+            margin: 0;
+            font-weight: 600;
+            font-size: .92rem;
+        }
+
+    .evalhw-count-badge {
+        font-size: .72rem;
+        font-weight: 600;
+        color: #475467;
+        background: #eef2f6;
+        border-radius: 999px;
+        padding: .25rem .65rem;
+    }
+
+    /* ---------- Table ---------- */
+    #tblEvaluate {
+        margin-bottom: 0;
+    }
+
+        #tblEvaluate thead th {
+            font-size: .74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #6b7280;
+            background: #fafbfc;
+            border-bottom: 1px solid #eef0f4;
+            white-space: nowrap;
+            padding: .75rem .9rem;
+        }
+
+        #tblEvaluate tbody td {
+            padding: .8rem .9rem;
+            font-size: .88rem;
+            vertical-align: middle;
+            border-bottom: none;
+        }
+
+        #tblEvaluate tbody tr.eval-row {
+            border-top: 1px solid #f0f1f4;
+            transition: background-color .12s ease-in-out;
+        }
+
+            #tblEvaluate tbody tr.eval-row:hover {
+                background-color: #f9fafb;
+            }
+
+        #tblEvaluate tbody tr.eval-note-row td {
+            padding-top: 0;
+            padding-bottom: .85rem;
+            background: #fff;
+        }
+
+    .evalhw-sno {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #eef2ff;
+        color: #4338ca;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .evalhw-student-name {
+        font-weight: 600;
+        color: #101828;
+    }
+
+    .evalhw-admission {
+        font-size: .78rem;
+        color: #98a2b3;
+    }
+
+    .msg-preview {
+        color: #475467;
+    }
+
+    .btn-view-message,
+    .btn-view-docs {
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .txtMarks {
+        max-width: 110px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .txtNote {
+        font-size: .84rem;
+        resize: vertical;
+        background: #fbfbfc;
+    }
+
+    .evalhw-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        padding: 3rem 1rem;
+        color: #98a2b3;
+        text-align: center;
+    }
+
+        .evalhw-empty i {
+            font-size: 2rem;
+            color: #d0d5dd;
+        }
+
+    /* ---------- Summary panel ---------- */
+    .evalhw-summary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: .5rem;
+        font-size: .85rem;
+        padding: .35rem 0;
+    }
+
+        .evalhw-summary-row .lbl {
+            color: #667085;
+        }
+
+        .evalhw-summary-row .val {
+            font-weight: 600;
+            color: #101828;
+            text-align: right;
+        }
+
+    .list-group-item {
+        border-color: #f0f1f4 !important;
+        font-size: .85rem;
+        padding: .65rem 1rem;
+    }
+
+    /* ---------- Responsive: tablet ---------- */
+    @@media (max-width: 1199.98px) {
+        .col-xl-4.ps-md-0 {
+            padding-left: .75rem !important;
+        }
+
+        .position-sticky {
+            position: relative !important;
+            top: 0 !important;
+        }
+    }
+
+    /* ---------- Responsive: mobile card-style table ---------- */
+    @@media (max-width: 767.98px) {
+        .evalhw-header {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+            .evalhw-header .d-flex.gap-1 {
+                flex-wrap: wrap;
+            }
+
+            .evalhw-header .top-btn {
+                flex: 1;
+            }
+
+        #tblEvaluate thead {
+            display: none;
+        }
+
+        #tblEvaluate,
+        #tblEvaluate tbody,
+        #tblEvaluate tr,
+        #tblEvaluate td {
+            display: block;
+            width: 100%;
+        }
+
+            #tblEvaluate tbody tr.eval-row {
+                border: 1px solid #eef0f4;
+                border-radius: .6rem;
+                margin: .75rem;
+                padding: .5rem .25rem;
+                box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+            }
+
+            #tblEvaluate tbody tr.eval-note-row {
+                margin: -0.5rem .75rem .75rem;
+            }
+
+                #tblEvaluate tbody tr.eval-note-row td {
+                    border: 1px solid #eef0f4;
+                    border-top: none;
+                    border-radius: 0 0 .6rem .6rem;
+                }
+
+            #tblEvaluate td {
+                padding: .45rem .9rem;
+                text-align: left !important;
+            }
+
+                #tblEvaluate td::before {
+                    content: attr(data-label);
+                    display: block;
+                    font-size: .68rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: .04em;
+                    color: #98a2b3;
+                    margin-bottom: .15rem;
+                }
+
+                #tblEvaluate td[data-label="S.No"] {
+                    display: none;
+                }
+
+        .txtMarks {
+            max-width: 100%;
+        }
+    }
+</style>
+
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        
+            <button class="btn btn-success top-btn" id="btnSaveEvaluation" onclick="saveEvaluation()">
+                <i class="ti ti-device-floppy me-1"></i> Save
+            </button>
+            
+        
+
+        <a href="/Homework/Index" class="btn btn-secondary top-btn">
+            <i class="ti ti-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-3 evalhw-header">
+    <div>
+        <h6 class="fw-bold mb-0">Evaluate Homework</h6>
+        <div class="text-muted fs-13">@Model.Homeworks?.SubjectName &middot; @Model.Homeworks?.ClassName @Model.Homeworks?.SectionName</div>
+    </div>
+    <div class="d-flex align-items-end gap-2">
+        <div class="evalhw-date-group">
+            <label for="txtEvaluationDate">Evaluation Date<span class="text-danger">*</span></label>
+            <input type="date" id="txtEvaluationDate" class="form-control"
+                   value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            <div class="invalid-feedback" id="errTxtEvaluationDate"></div>
+        </div>
+       
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <div class="col-xl-8">
+        <div class="card shadow-tbl-outer mb-0">
+            <div class="evalhw-card-title">
+                <h6>Student Submissions</h6>
+                <span class="evalhw-count-badge">@submissionCount student@(submissionCount == 1 ? "" : "s")</span>
+            </div>
+            <div class="card-body p-0">
+
+                <input type="hidden" id="hdnHomeworkID" value="@Model.HomeworkID" />
+
+                @if (submissionCount == 0)
+                {
+                    <div class="evalhw-empty">
+                        <i class="ti ti-file-off"></i>
+                        <div class="fw-semibold text-secondary">No submissions yet</div>
+                        <div class="fs-13">Submissions will appear here once students upload their homework.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" id="tblEvaluate">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th style="width:22%">Student Name</th>
+                                    <th style="width:32%">Message</th>
+                                    <th style="width:20%">Uploaded Documents</th>
+                                    <th style="width:14%">Marks (@Model.Homeworks?.MaxMarks?.ToString("0.00"))</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    int sNo = 1;
+                                }
+                                @foreach (var s in Model.HomeworkSubmissions)
+                                {
+                                    var rawMessage = s.Message ?? string.Empty;
+                                    var plainText = System.Text.RegularExpressions.Regex.Replace(rawMessage, "<.*?>", string.Empty);
+                                    var isMessageLong = plainText.Length > MESSAGE_TRUNCATE_LENGTH;
+                                    var shortMessage = isMessageLong
+                                    ? plainText.Substring(0, MESSAGE_TRUNCATE_LENGTH) + "..."
+                                    : plainText;
+
+                                    var fullMessage = Html.Raw(rawMessage);
+                                    var attachments = (s.AttachmentList ?? new List<HomeworkAttachmentDto>())
+                                    .Where(a => !string.IsNullOrWhiteSpace(a.AttachmentName))
+                                    .ToList();
+
+                                    var attachmentsJson = JsonSerializer.Serialize(attachments.Select(a => new { name = a.AttachmentName, path = a.AttachmentPath }));
+
+                                    <tr class="eval-row" data-submission-id="@s.SubmissionID">
+                                        <td data-label="S.No"><span class="evalhw-sno">@sNo</span></td>
+                                        <td data-label="Student Name">
+                                            <div class="evalhw-student-name">@s.FullName</div>
+                                            <div class="evalhw-admission">@s.AdmissionNo</div>
+                                        </td>
+                                        <td data-label="Message">
+                                            @if (isMessageLong)
+                                            {
+                                                <span class="msg-preview">@shortMessage</span>
+                                                <a href="javascript:void(0)"
+                                                   class="ms-1 btn-view-message text-primary"
+                                                   data-student="@s.FullName"
+                                                   data-message="@rawMessage"
+                                                   title="View full message">
+                                                    <i class="ti ti-eye"></i>
+                                                </a>
+                                            }
+                                            else if (string.IsNullOrWhiteSpace(rawMessage))
+                                            {
+                                                <span class="text-muted">No message</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@fullMessage</span>
+                                            }
+                                        </td>
+                                        <td data-label="Uploaded Documents">
+                                            @if (attachments.Count == 0)
+                                            {
+                                                <span class="text-muted">No attachment</span>
+                                            }
+                                            else if (attachments.Count == 1)
+                                            {
+                                                <a href="@attachments[0].AttachmentPath"
+                                                   target="_blank"
+                                                   rel="noopener"
+                                                   class="text-primary text-decoration-none"
+                                                   title="View @attachments[0].AttachmentName">
+                                                    <i class="ti ti-eye me-1"></i>@attachments[0].AttachmentName
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a href="javascript:void(0)"
+                                                   class="btn-view-docs text-primary text-decoration-none"
+                                                   data-student="@s.FullName"
+                                                   data-attachments='@attachmentsJson'
+                                                   title="View all documents">
+                                                    <i class="ti ti-eye me-1"></i>@attachments.Count Documents
+                                                </a>
+                                            }
+                                        </td>
+                                        <td data-label="Marks">
+                                            <input type="number" step="0.01" min="0" max="@Model.Homeworks?.MaxMarks"
+                                                   class="form-control txtMarks"
+                                                   value="@s.MarksObtained"
+                                                   placeholder="0.00" />
+                                        </td>
+                                    </tr>
+                                    <tr class="eval-note-row">
+                                        <td data-label="" class="d-none d-md-table-cell"></td>
+                                        <td data-label="Note" colspan="4">
+                                            <textarea class="form-control txtNote" rows="2"
+                                                      placeholder="Add a note for this student...">@s.Remark</textarea>
+                                        </td>
+                                    </tr>
+                                    sNo++;
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card shadow-tbl-outer position-sticky mb-5" style="top: 70px">
+            <div class="evalhw-card-title">
+                <h6>Summary</h6>
+            </div>
+            <div class="card-body pb-2">
+                <div class="evalhw-summary-row">
+                    <span class="lbl">Homework Date</span>
+                    <span class="val">@Model.Homeworks?.HomeworkDate.ToString("dd-MM-yyyy")</span>
+                </div>
+                <div class="evalhw-summary-row">
+                    <span class="lbl">Submission Date</span>
+                    <span class="val">@Model.Homeworks?.SubmissionDate.ToString("dd-MM-yyyy")</span>
+                </div>
+                <div class="evalhw-summary-row">
+                    <span class="lbl">Evaluation Date</span>
+                    <span class="val">@(Model.Homeworks?.EvaluationDate?.ToString("dd-MM-yyyy") ?? "-")</span>
+                </div>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-dark">Created By</span>
+                    <span class="fw-semibold">@Model.Homeworks?.CreatedByName</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-dark">Class</span>
+                    <span class="fw-semibold">@Model.Homeworks?.ClassName</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-dark">Section</span>
+                    <span class="fw-semibold">@Model.Homeworks?.SectionName</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-dark">Subject</span>
+                    <span class="fw-semibold">@Model.Homeworks?.SubjectName</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-dark">Total Marks</span>
+                    <span class="fw-semibold">@Model.Homeworks?.MaxMarks?.ToString("0.00")</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+
+<!-- Full Message Popup -->
+<div class="modal fade" id="modalMessage" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title mb-0" id="modalMessageTitle">Message</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalMessageBody" style="white-space: pre-wrap;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Documents Popup -->
+<div class="modal fade" id="modalDocuments" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title mb-0" id="modalDocumentsTitle">Uploaded Documents</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group list-group-flush" id="modalDocumentsList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+    </script>
+    <script src="~/assets/js/Homeworkevaluate.js"></script>
+
+    <script>
+        (function () {
+            var modalMessageEl = document.getElementById('modalMessage');
+            var modalDocumentsEl = document.getElementById('modalDocuments');
+            var modalMessage = new bootstrap.Modal(modalMessageEl);
+            var modalDocuments = new bootstrap.Modal(modalDocumentsEl);
+
+            var tbl = document.getElementById('tblEvaluate');
+            if (tbl) {
+                tbl.addEventListener('click', function (e) {
+                    var msgBtn = e.target.closest('.btn-view-message');
+                    if (msgBtn) {
+                        document.getElementById('modalMessageTitle').textContent = msgBtn.getAttribute('data-student') + ' - Message';
+                        document.getElementById('modalMessageBody').innerHTML = msgBtn.getAttribute('data-message'); // innerHTML, not textContent
+                        modalMessage.show();
+                        return;
+                    }
+
+                    var docsBtn = e.target.closest('.btn-view-docs');
+                    if (docsBtn) {
+                        var studentName = docsBtn.getAttribute('data-student');
+                        var attachments = [];
+                        try {
+                            attachments = JSON.parse(docsBtn.getAttribute('data-attachments') || '[]');
+                        } catch (err) {
+                            attachments = [];
+                        }
+
+                        document.getElementById('modalDocumentsTitle').textContent = studentName + ' - Documents';
+
+                        var listEl = document.getElementById('modalDocumentsList');
+                        listEl.innerHTML = '';
+
+                        attachments.forEach(function (a) {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item d-flex align-items-center justify-content-between';
+
+                            var nameSpan = document.createElement('span');
+                            nameSpan.className = 'text-truncate me-2';
+                            nameSpan.textContent = a.name;
+                            li.appendChild(nameSpan);
+
+                            var actions = document.createElement('div');
+                            actions.className = 'flex-shrink-0';
+
+                            var viewLink = document.createElement('a');
+                            viewLink.href = a.path;
+                            viewLink.target = '_blank';
+                            viewLink.rel = 'noopener';
+                            viewLink.className = 'me-2 text-primary';
+                            viewLink.title = 'View';
+                            viewLink.innerHTML = '<i class="ti ti-eye"></i>';
+                            actions.appendChild(viewLink);
+
+                            var downloadLink = document.createElement('a');
+                            downloadLink.href = a.path;
+                            downloadLink.setAttribute('download', '');
+                            downloadLink.className = 'text-primary';
+                            downloadLink.title = 'Download';
+                            downloadLink.innerHTML = '<i class="ti ti-download"></i>';
+                            actions.appendChild(downloadLink);
+
+                            li.appendChild(actions);
+                            listEl.appendChild(li);
+                        });
+
+                        modalDocuments.show();
+                    }
+                });
+            }
+        })();
+    </script>
+}

@@ -1,0 +1,149 @@
+﻿@model SchoolERPWebConsole.Domain.FeeTemplatePageViewModel
+
+@{
+    var items = Model?.FeeTemplates ?? new List<SchoolERPWebConsole.Domain.FeeTemplateViewModel>();
+    var totalRecords = Model?.TotalRecords ?? 0;
+    var pageIndex = Model?.PageNumber ?? 1;
+    var pageSize = Model?.PageSize ?? 10;
+    var totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalRecords / pageSize) : 0;
+    var p = Model?.Permissions;
+    var startRecord = items.Any() ? ((pageIndex - 1) * pageSize) + 1 : 0;
+    var endRecord = items.Any() ? Math.Min(pageIndex * pageSize, totalRecords) : 0;
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+
+                    <table class="table ft-grid-table" id="ftGridTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:44px" class="ps-3">Select</th>
+                                <th class="sortable" data-sort="CLASSNAME">Class</th>
+                                <th class="sortable" data-sort="SECTIONNAME">Section</th>
+                                <th class="sortable" data-sort="INSTALLMENTNAME">Installment</th>
+                                <th class="sortable" data-sort="ADMISSIONTYPE">Admission Type</th>
+                                <th>Rank Group</th>
+                                <th>Category</th>
+                                <th>No Of Months</th>
+                                <th>Late Fee Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (items.Any())
+                            {
+                                foreach (var row in items)
+                                {
+                                    <tr class="item-row"
+                                        data-id="@row.FEETEMPLATEID"
+                                        onclick="FeeTemplateGrid.selectItem(@row.FEETEMPLATEID, this)"
+                                        style="cursor:pointer;">
+
+                                        <td class="ps-3"
+                                            onclick="event.stopPropagation()">
+                                            <input type="checkbox"
+                                                   name="selectedFeeTemplate"
+                                                   class="form-check-input ft-row-checkbox"
+                                                   value="@row.FEETEMPLATEID"
+                                                   onclick="event.stopPropagation()"
+                                                   onchange="FeeTemplateGrid.onCheckboxChange(@row.FEETEMPLATEID, this)">
+                                        </td>
+
+                                        <td>@row.CLASSNAME</td>
+                                        <td>@row.SECTIONNAME</td>
+                                        <td>@row.INSTALLMENTNAME</td>
+                                        <td>@row.ADMISSIONTYPE</td>
+                                        <td>@row.FEECATEGORYNAME</td>
+                                        <td>@row.StudentCategoryName</td>
+                                        <td>@row.NOOFMONTHS</td>
+                                        <td>@row.LATEFEEAMOUNT.ToString("N2")</td>
+
+                                        <td onclick="event.stopPropagation()">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" onchange="FeeTemplateGrid.toggleStatus(@row.FEETEMPLATEID, this.checked, this)" @(row.ISACTIVE ? "checked" : "") @(p != null && p.CanEdit ? "" : "disabled")>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4"> No Fee Templates found. </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @* Pagination: show only when multiple pages exist *@
+                    @if (totalRecords > 0 && totalPages > 1)
+                    {
+                        <div class="ft-grid-footer">
+
+                            <div class="ft-grid-summary text-muted small">
+                                Showing
+                                <strong>@startRecord</strong>
+                                –
+                                <strong>@endRecord</strong>
+                                of
+                                <strong>@totalRecords</strong> records
+                            </div>
+
+                            <div class="ft-grid-pager" data-page-index="@pageIndex" data-page-size="@pageSize" data-total-pages="@totalPages" data-total-records="@totalRecords">
+                                <nav aria-label="Fee Template pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        @* First *@
+                                        <li class="page-item @(pageIndex <= 1 ? "disabled" : "")">
+                                            <button type="button" class="page-link btnPagerFirst" disabled="@(pageIndex <= 1)">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </button>
+                                        </li>
+
+                                        @* Previous *@
+                                        <li class="page-item @(pageIndex <= 1 ? "disabled" : "")">
+                                            <button type="button" class="page-link btnPagerPrev" disabled="@(pageIndex <= 1)">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </button>
+                                        </li>
+
+                                        @* Page Numbers *@
+                                        @{
+                                            int start = Math.Max(1, pageIndex - 2);
+                                            int end = Math.Min(totalPages, start + 4);
+                                            start = Math.Max(1, end - 4);
+                                        }
+
+                                        @for (int pg = start; pg <= end; pg++)
+                                        {
+                                            <li class="page-item @(pg == pageIndex ? "active" : "")">
+                                                <button type="button" class="page-link btnPagerNumber" data-page="@pg">
+                                                    @pg
+                                                </button>
+                                            </li>
+                                        }
+                                        <li class="page-item @(pageIndex >= totalPages ? "disabled" : "")">
+                                            <button type="button" class="page-link btnPagerNext" disabled="@(pageIndex >= totalPages)">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </button>
+                                        </li>
+                                        <li class="page-item @(pageIndex >= totalPages ? "disabled" : "")">
+                                            <button type="button" class="page-link btnPagerLast" disabled="@(pageIndex >= totalPages)">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </button>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

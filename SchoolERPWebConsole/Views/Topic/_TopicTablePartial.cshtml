@@ -1,0 +1,228 @@
+﻿@model SchoolERPWebConsole.Domain.TopicPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+
+@{    
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+@functions {
+    // Builds a 2-letter avatar initials string from a full name, e.g. "Aarav Sharma" -> "AS"
+    string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "NA";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
+    // Deterministically maps any string to one of N palette slots, so the same
+    // subject / teacher always renders with the same colour.
+    int GetColorIndex(string? key, int paletteSize)
+    {
+        if (string.IsNullOrEmpty(key)) return 0;
+        int sum = 0;
+        foreach (var c in key) sum += c;
+        return Math.Abs(sum) % paletteSize;
+    }
+}
+ <div class="col-xl-12">
+        <div class="card shadow-tbl">
+            <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="homeworkTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:60px;">Select</th>
+                                <th style="width:130px;">Class (Section)</th>
+                                <th style="width:110px;">Subject Group</th>
+                                <th style="width:150px;">Subject (Teacher Name)</th>
+                                <th style="width:180px;">Lesson Name</th>
+                                <th>Topic Name</th>
+                                <th style="width:120px;">Created By</th>
+                                <th style="width:90px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Topic != null && Model.Topic.Any())
+                            {
+                                foreach (var h in Model.Topic)
+                                {
+                                    List<TopicChapterDto> Chapters = new();
+                                    if (!string.IsNullOrWhiteSpace(h.TopicNamesJson))
+                                    {
+                                        Chapters = JsonSerializer.Deserialize<List<TopicChapterDto>>(h.TopicNamesJson)
+                                        ?? new List<TopicChapterDto>();
+                                    }
+
+                                    var subjectColorIdx = GetColorIndex(h.SubjectName, 5);
+                                    var avatarColorIdx = GetColorIndex(h.CLASSTEACHERNAME, 5);
+                                    var visibleChapters = Chapters.Take(2).ToList();
+                                    var extraChapters = Chapters.Skip(2).ToList();
+
+                                    <tr class="item-row">
+                                        <td class="text-center" data-label="Select" onclick="event.stopPropagation()">
+                                            <input type="checkbox" name="selectedSection" onclick="selectItem(@h.TopicId, this)"
+                                                   class="form-check-input student-checkbox"
+                                                   value="@h.TopicId">
+                                        </td>
+                                        <td data-label="Class / Section">
+                                            <div class="class-cell">
+                                                <span class="class-icon"><i class="ti ti-school"></i></span>
+                                                <div class="class-text">
+                                                    <div class="class-name">@h.ClassName</div>
+                                                    <div class="section-name">@h.SectionName</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td data-label="Group">
+                                            <span class="chip chip-group"><i class="ti ti-users fs-12"></i>@h.SubjectGroupName</span>
+                                        </td>
+                                        <td data-label="Subject / Teacher">
+                                            <div class="teacher-cell">
+                                                <span class="avatar-circle avatar-c@(avatarColorIdx)">@GetInitials(h.CLASSTEACHERNAME)</span>
+                                                <div class="teacher-text">
+                                                    <span class="chip chip-subject chip-subject-c@(subjectColorIdx)">
+                                                        <i class="ti ti-book-2 fs-12"></i>@h.SubjectName
+                                                    </span>
+                                                    <div class="teacher-name">@h.CLASSTEACHERNAME</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">@h.LessonName</td>
+                                        <td data-label="Chapters" onclick="event.stopPropagation()">
+                                            @if (Chapters.Any())
+                                            {
+                                                <div class="chapter-tags">
+                                                    @foreach (var chapter in visibleChapters)
+                                                    {
+                                                        <span class="chip chip-tag"><i class="ti ti-tag fs-12"></i>@chapter.TopicName</span>
+                                                    }
+                                                    @if (extraChapters.Any())
+                                                    {
+                                                        <div class="extra-tags">
+                                                            @foreach (var chapter in extraChapters)
+                                                            {
+                                                                <span class="chip chip-tag"><i class="ti ti-tag fs-12"></i>@chapter.TopicName</span>
+                                                            }
+                                                        </div>
+                                                        <a href="javascript:void(0)" class="more-tags-toggle" onclick="toggleExtraTags(this)">+@extraChapters.Count more</a>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted fs-13">No chapters added</span>
+                                            }
+                                        </td>
+
+
+                                        <td data-label="Created By" class="text-muted fs-13">
+                                            <span class="created-by"><i class="ti ti-user fs-12"></i>@h.CreatedByName</span>
+                                        </td>
+                                        <td class="text-center" data-label="Status" onclick="event.stopPropagation()">
+                                            @if (p.CanEdit)
+                                            {
+                                                <div class="form-check form-switch d-flex justify-content-center m-0">
+                                                    <input class="form-check-input section-status-switch" type="checkbox" role="switch" @(h.IsActive ? "checked" : "") onchange="toggleStatus(@h.LessonId, this.checked)">
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge @(h.IsActive ? "bg-success-subtle text-success border border-success-subtle" : "bg-secondary-subtle text-secondary border border-secondary-subtle")">
+                                                    @(h.IsActive ? "Active" : "Inactive")
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td class="text-center py-5 text-muted" colspan="8">
+                                        <i class="ti ti-clipboard-off fs-1 d-block mb-2 text-body-tertiary"></i>
+                                        No Topic Data Found
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                @if (totalPages > 1)
+                {
+                            <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                                <!-- Record info -->
+                                <div class="text-muted small">
+                                    Showing
+                                    <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                    –
+                                    <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                    of
+                                    <strong>@Model.TotalRecords</strong> users
+                                </div>
+
+                                <nav aria-label="Subject pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        <!-- First -->
+                                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <!-- Prev -->
+                                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <!-- Page numbers — show 5 around current -->
+                                @{
+                                    int start = Math.Max(1, Model.PageNumber - 2);
+                                    int end = Math.Min(totalPages, start + 4);
+                                    start = Math.Max(1, end - 4);
+                                }
+                                @for (int pg = start; pg <= end; pg++)
+                                {
+                                                <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                                    <a class="page-link"
+                                                       href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">@pg</a>
+                                                </li>
+                                }
+
+                                        <!-- Next -->
+                                        <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <!-- Last -->
+                                        <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+
+                            </div>
+                }
+    
+            </div>
+            </div>
+            </div>
+        </div>
+    </div>

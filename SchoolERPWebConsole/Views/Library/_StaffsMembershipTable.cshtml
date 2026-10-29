@@ -1,0 +1,192 @@
+﻿@model SchoolERPWebConsole.Domain.StaffMemberPageViewModel
+@{
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl overflow-auto">
+        <div class="card-body p-0">
+            @if (p.CanAdd)
+            {
+                <div class="px-3 pt-3 text-muted small">
+                    Tick staff, set Expiry / Renew date (Days auto-calculates), fill NOD / Card No, then click Save above.
+                </div>
+            }
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table table-nowrap mb-0" id="tblMembers">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:36px;"><input type="checkbox" class="form-check-input" id="chkSelectAll" onchange="toggleSelectAll(this)"></th>
+                                <th style="width:40px;">#</th>
+                                <th>Staff Code</th>
+                                <th>Staff Name</th>
+                                <th>Department</th>
+                                <th>Gender</th>
+                                <th>Mobile Number</th>
+                                <th style="width:150px;">Expiry Date</th>
+                                <th style="width:150px;">Renew Date</th>
+                                <th style="width:90px;">NOD</th>
+                                <th style="width:90px;">Days</th>
+                                <th style="width:160px;">Card No</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items != null && Model.Items.Any())
+                            {
+                                int rowNum = ((Model.PageNumber - 1) * Model.PageSize) + 1;
+                                @foreach (var c in Model.Items)
+                                {
+                                    bool isRegistered = c.LibraryCardNo != null;
+                                    <tr class="item-row"
+                                        data-staff-id="@c.StaffID"
+                                        data-staff-code="@c.AdmissionNo"
+                                        data-library-member-id="@c.LibraryMemberID"
+                                        data-is-existing="@(isRegistered ? "1" : "0")">
+                                        <td>
+                                            @if (p.CanEdit)
+                                            {
+                                                <input type="checkbox" class="form-check-input row-check" onchange="updateSelectedCount()">
+                                            }
+                                        </td>
+                                        <td>@rowNum</td>
+                                        <td>@c.AdmissionNo</td>
+                                        <td>@c.StaffName</td>
+                                        <td>@c.DepartmentName</td>
+                                        <td>@c.Gender</td>
+                                        <td>@c.MobileNo</td>
+
+                                        <td class="text-center">
+                                            @if (p.CanEdit)
+                                            {
+                                                <input type="date"
+                                                       value="@(c.ExpiryDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                       class="form-control form-control-sm date-input expiry-input"
+                                                       onchange="calcDays(this,0)">
+                                                
+                                            }
+                                        </td>
+
+                                        <td class="text-center">
+                                            @if (p.CanEdit)
+                                            {
+                                                <input type="date"
+                                                         value="@(c.RenewDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                         class="form-control form-control-sm date-input renew-input"
+                                                         onchange="calcDays(this,0)">
+                                                
+                                            }
+                                        </td>
+
+                                        <td class="text-center">
+                                            @if (p.CanEdit)
+                                            {
+                                                <input type="number" class="form-control form-control-sm row-input nod-input" value="@(c.NoOfDaysOverdue ?? 10)" min="1">
+                                            }
+                                        </td>
+
+                                        <td class="text-center">
+                                            @if (p.CanEdit)
+                                            {
+                                                <input type="number" value="@(c.MaxIssueDays ?? 7)" class="form-control form-control-sm row-input days-input" min="1" readonly>
+                                            }
+                                        </td>
+
+                                        <td class="text-center">
+                                            @if (isRegistered)
+                                            {
+                                                <span class="fw-medium me-2" data-card-no="@c.LibraryCardNo">@c.LibraryCardNo</span>
+                                            }
+                                            else if (p.CanEdit)
+                                            {
+                                                <input type="text" class="form-control form-control-sm card-input cardno-input" placeholder="Auto / manual">
+                                            }
+                                        </td>
+
+
+                                    </tr>
+                                    rowNum++;
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="12" class="text-center py-4">
+                                        <span class="text-muted">Please select filters to load staff.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&departmentID=@Model.DepartmentID">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&departmentID=@Model.DepartmentID">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&departmentID=@Model.DepartmentID">@pg</a>
+                                        </li>
+                                    }
+
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&departmentID=@Model.DepartmentID">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&departmentID=@Model.DepartmentID">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

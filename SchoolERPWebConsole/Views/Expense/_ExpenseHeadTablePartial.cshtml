@@ -1,0 +1,205 @@
+﻿@model SchoolERPWebConsole.Domain.AccountHeadPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+    var pageSize = Model.PageSize > 0
+       ? Model.PageSize
+       : 10;
+
+    var requestedPage = 1;
+
+    if (int.TryParse(
+        Context.Request.Query["pageIndex"],
+        out var queryPage))
+    {
+        requestedPage = queryPage;
+    }
+
+    var currentPage = requestedPage < 1
+        ? 1
+        : requestedPage;
+
+    var totalRecords = Math.Max(Model.TotalRecords, 0);
+
+    var totalPages = totalRecords == 0
+        ? 1
+        : (int)Math.Ceiling(
+            (double)totalRecords / pageSize
+          );
+
+    if (currentPage > totalPages)
+    {
+        currentPage = totalPages;
+    }
+
+    var firstRecord = totalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    var lastRecord = totalRecords == 0
+        ? 0
+        : Math.Min(currentPage * pageSize, totalRecords);
+
+    var searchTerm = Model.SearchTerm ?? "";
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table mb-0" id="tblAccountHead">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width: 50px;" class="ps-3">Select</th>
+                                <th>Head Name</th>
+                                <th>Display Name</th>
+                                <th>Description</th>
+                                <th style="width: 100px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items != null)
+                            {
+                                @foreach (var item in Model.Items)
+                                {
+                                    <tr class="item-row" onclick="selectItem(@item.AccountHeadID, this)">
+                                        <td class="ps-3">
+                                            <input type="checkbox" name="selectedItem" style="cursor: pointer;"
+                                                   class="form-check-input student-checkbox"
+                                                   value="@item.AccountHeadID">
+
+                                        </td>
+                                        <td>@item.HeadName</td>
+                                        <td>@item.DisplayLabel</td>
+                                        <td>@item.HeadDescription</td>                                        
+                                        <td>
+                                            @if (p.CanView)
+                                            {
+                                                <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           onchange="toggleStatus(@item.AccountHeadID, this.checked,this)"
+                                                    @(item.IsActive ? "checked" : "")
+                                                    @(p.CanEdit ? "" : "disabled")>
+                                                </div>
+                                            }
+
+                                        </td>                                        
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-4">No records found.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalRecords > 0)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@firstRecord</strong>
+                                –
+                                <strong>@lastRecord</strong>
+                                of
+                                <strong>@totalRecords</strong>
+                                main menus
+                            </div>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Menu pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        @{
+                                            var firstUrl =
+                                            $"?pageIndex=1&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+
+                                            var previousPage = Math.Max(1, currentPage - 1);
+
+                                            var previousUrl =
+                                            $"?pageIndex={previousPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+                                        }
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@firstUrl"
+                                               aria-label="First page">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@previousUrl"
+                                               aria-label="Previous page">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @{
+                                            var startPage = Math.Max(1, currentPage - 2);
+                                            var endPage = Math.Min(totalPages, startPage + 4);
+
+                                            if (endPage - startPage < 4)
+                                            {
+                                                startPage = Math.Max(1, endPage - 4);
+                                            }
+                                        }
+
+                                        @for (var pg = startPage; pg <= endPage; pg++)
+                                        {
+                                            var pageUrl =
+                                            $"?pageIndex={pg}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+
+                                            <li class="page-item @(pg == currentPage ? "active" : "")">
+                                                <a class="page-link"
+                                                   href="@pageUrl"
+                                                   aria-current="@(pg == currentPage ? "page" : null)">
+                                                    @pg
+                                                </a>
+                                            </li>
+                                        }
+
+                                        @{
+                                            var nextPage = Math.Min(totalPages, currentPage + 1);
+
+                                            var nextUrl =
+                                            $"?pageIndex={nextPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            var lastUrl =
+                                            $"?pageIndex={totalPages}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@nextUrl"
+                                               aria-label="Next page">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@lastUrl"
+                                               aria-label="Last page">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            }
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

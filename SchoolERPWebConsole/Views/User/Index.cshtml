@@ -1,0 +1,334 @@
+﻿@*
+    ======================================================================
+    VIEW: User / Index.cshtml
+    PURPOSE: User interface rendering for the User module.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.UsersPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "User Management";
+    // ── compute at top of view ────────────────────────────────────────
+    int totalPages = Model.PageSize > 0
+                     ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                     : 0;
+    var pb = Model.Permissions;
+}
+
+<link rel="stylesheet" href="~/css/treeview.css" />
+<style>
+    .choices__list--dropdown .choices__item--selectable, .choices__list[aria-expanded] .choices__item--selectable {
+        padding-right: 0;
+    }
+
+    .x-small {
+        font-size: 0.7rem;
+    }
+
+    .tree-grid {
+        border: 1px solid #ddd;
+    }
+
+        .tree-grid th {
+            padding: 10px 8px;
+        }
+
+    .w-s-nowrap {
+        text-align: center !important;
+    }
+
+    .tree-grid-wrapper {
+        border-radius: 0;
+    }
+
+    .top-6 {
+        top: 6px;
+    }
+
+    .dt-buttons {
+        display: none !important;
+    }
+</style>
+
+
+<!-- Page Header -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">User Management</h6>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1">
+        @if (pb.CanAdd)
+        {
+            <a asp-action="AddUser" class="btn btn-primary top-btn">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (pb.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (pb.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger top-btn" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+
+        @if (pb.CanEdit)
+        {
+            <!-- FIX: pass id=0 (use bulk selection) explicitly instead of a bare boolean,
+                 which was previously landing in the `id` parameter and corrupting the
+                 fallback single-user logic in updateUserStatus(). -->
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="updateUserStatus(0, true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="updateUserStatus(0, false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+
+        @if (pb.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center shadow-sm top-btn" onclick="triggerExport('print')">
+                <i class="ti ti-printer me-1"></i> Print
+            </button>
+        }
+        @if (pb.CanExport)
+        {
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-warning dropdown-toggle d-inline-flex align-items-center shadow-sm top-btn" type="button" data-bs-toggle="dropdown">
+                    <i class="ti ti-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('copy')"><i class="ti ti-copy me-2"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('csv')"><i class="ti ti-file-text me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('excel')"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('pdf')"><i class="ti ti-file-description me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Users Table Card -->
+<div class="row">
+
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 ">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearchInput"
+                               placeholder="Search users..." style="min-width: 220px;">
+                    </div>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggle" class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl" id="filter-dropdown" style="">
+
+                            <div id="frmSearch">
+                                <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                    <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                    <div class="d-flex align-items-center justify-content-end">
+                                        <button type="button" class="btn text-primary fs-6 fw-medium" id="btnApplyFilters">Filter</button>
+                                    </div>
+                                </div>
+                                <div class="filter-body pb-0">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label mb-1">User Type</label>
+                                            <select class="form-select form-control select2" id="ddlFilterUserType" data-placeholder="Select user type">
+                                                <option value="all">All</option>
+                                                @foreach (var ut in Model.UserTypes)
+                                                {
+                                                    <option value="@ut.UserTypeID">@ut.TypeName</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label mb-1">Company</label>
+                                            <select class="form-select form-control select2" id="ddlFilterCompany" data-placeholder="Select company">
+                                                <option value="all">All</option>
+                                                @foreach (var c in Model.Companies ?? new List<MstCompanyViewModel>())
+                                                {
+                                                    <option value="@c.CompanyId">@c.SchoolName</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3 d-none">
+                                            <label class="form-label mb-1">Role</label>
+                                            <select class="form-select form-control select2" id="ddlFilterRole" data-placeholder="Select role">
+                                                <option value="all">All</option>
+                                                @foreach (var role in Model.Roles)
+                                                {
+                                                    <option value="@role.RoleID">@role.RoleName</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label mb-1">Status</label>
+                                            <select class="form-select form-control select2" id="ddlFilterStatus" data-placeholder="Select status">
+                                                <option value="all">All</option>
+                                                <option value="active">Active</option>
+                                                <option value="inactive">Inactive</option>
+                                                <option value="locked">Locked</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label mb-1">Page Size</label>
+                                            <!-- FIX: removed onchange="this.form.submit()" (there is no parent <form> to
+                                                 submit against anymore, and it would fight with the AJAX listener in
+                                                 user-index.js). The change event is now handled entirely in JS. -->
+                                            <select name="pageSize" class="form-select" id="ddlPageSize">
+                                                @foreach (var ps in new[] { 10, 20, 50, 100 })
+                                                {
+                                                    var isSelected = Model.PageSize == ps;
+                                                    <option value="@ps" selected="@isSelected">
+                                                        @ps per page
+                                                    </option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2"><i class="ti ti-filter-check me-1"></i>Active Filters:</span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none" id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="UserTableContainer">
+        @await Html.PartialAsync("_UserTablePartial", Model)
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="~/assets/js/user-index.js"></script>
+}
+
+<style>
+    /* ============ Stats Cards ============ */
+    .stat-card {
+        border-radius: 12px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+        }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 1.2rem;
+    }
+
+    .bg-gradient-primary {
+        background: linear-gradient(310deg, #5e72e4, #825ee4);
+    }
+
+    .bg-gradient-success {
+        background: linear-gradient(310deg, #2dce89, #2dcecc);
+    }
+
+    .bg-gradient-secondary {
+        background: linear-gradient(310deg, #627594, #a8b8d8);
+    }
+
+    .bg-gradient-danger {
+        background: linear-gradient(310deg, #f5365c, #f56036);
+    }
+
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .avatar-initials {
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    .text-xxs {
+        font-size: 0.65rem;
+    }
+
+    .font-weight-bolder {
+        font-weight: 700 !important;
+    }
+
+    .badge-sm {
+        padding: 0.45em 0.75em;
+        font-size: 0.75rem;
+    }
+
+    .table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+        .table tbody tr:hover {
+            background-color: rgba(94, 114, 228, 0.04);
+        }
+
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+    .badge-dot {
+        width: 6px;
+        height: 6px;
+        padding: 0;
+        border-radius: 50%;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+</style>

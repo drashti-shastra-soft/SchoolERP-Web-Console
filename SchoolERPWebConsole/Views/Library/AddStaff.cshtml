@@ -1,0 +1,281 @@
+﻿@model SchoolERPWebConsole.Domain.StaffMemberPageViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Library Staff Membership";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                  ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                  : 0;
+}
+
+<style>
+    .dt-buttons {
+        display: none !important;
+    }
+
+    .row-input {
+        width: 80px;
+    }
+
+    .card-input {
+        width: 120px;
+    }
+
+    .date-input {
+        width: 140px;
+    }
+
+    
+    /* ── Filters card ─────────────────────────────────────────────── */
+    .search-box-wrap {
+        min-width: 220px;
+        margin-bottom: 7px;
+    }
+
+    /* Table never breaks the page layout, always scrolls horizontally
+           when it doesn't fit */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #tblMembers {
+        min-width: 900px; /* keeps columns usable, forces horizontal scroll on small screens */
+    }
+
+        #tblMembers th,
+        #tblMembers td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+    /* ── Mobile breakpoints ───────────────────────────────────────── */
+    @@media (max-width: 991.98px) {
+        .row-input,
+        .card-input,
+        .date-input {
+            width: 100%;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .sticky-toolbar {
+            position: static;
+            align-items: flex-start !important;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        .responsive-btn-group {
+            width: 100%;
+        }
+
+            .responsive-btn-group .top-btn,
+            .responsive-btn-group .dropdown {
+                flex: 1 1 auto;
+            }
+
+            .responsive-btn-group .dropdown-toggle {
+                width: 100%;
+            }
+
+        #tblMembers th:nth-child(1),
+        #tblMembers td:nth-child(1) {
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 2;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        h6.fw-bold {
+            font-size: 1rem;
+        }
+
+        .responsive-btn-group {
+            flex-direction: column;
+        }
+
+            .responsive-btn-group .top-btn,
+            .responsive-btn-group .dropdown {
+                width: 100%;
+            }
+
+        .card-body.p-3 {
+            padding: .75rem !important;
+        }
+
+        #activeFilterBadges .card-body {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+
+        #btnResetAllFilters {
+            margin-left: 0 !important;
+        }
+
+        nav[aria-label="Subject pagination"] {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .pagination {
+            flex-wrap: nowrap;
+        }
+    }
+</style>
+
+<!-- Page Header -->
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Library Staff Membership</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <button type="button" id="btnRegisterSelected" class="btn btn-primary top-btn" onclick="saveBulkMembership()">
+                <i class="ti ti-id-badge-2 me-1"></i>Save
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center justify-content-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- start row -->
+<div class="row">
+
+    <!-- ── All filters shown inline — no popup ── -->
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-6 col-md-4 position-relative border d-flex align-items-center rounded-2 px-3 search-box-wrap">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               name="search"
+                               id="txtSearchInput"
+                               value="@Model.SearchTerm"
+                               class="form-control border-0 ps-2"
+                               placeholder="Search by staff name, code..." />
+                    </div>
+
+                    <div class="col-sm-6 col-md-4 d-none">
+                        <select class="form-select form-control select2"
+                                id="ddlFilterCompany"
+                                data-placeholder="All Companies">
+                            <option value="">All Companies</option>
+                            @foreach (var c in Model.Companies ?? new List<MstCompanyViewModel>())
+                            {
+                                <option value="@c.CompanyId" selected="@(Model.CompanyId == c.CompanyId)">
+                                    @c.SchoolName
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-sm-4 col-md-4">
+                        <label class="form-label fw-semibold">Department</label>
+                        <select id="fDept" class="form-select form-control select2" data-placeholder="All Departments">
+                            <option value="">All Departments</option>
+                            @foreach (var d in Model.Departments)
+                            {
+                                <option value="@d.DepartmentID" selected="@(Model.DepartmentID == d.DepartmentID)">@d.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-6 col-sm-4 col-md-4 mb-2">
+                        <label class="form-label fw-semibold">Expiry Date</label>
+                        <input type="date" class="form-control expiry-input" onchange="calcDays(this,1)" id="topExpiry">
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3">
+                        <label class="form-label fw-semibold">Return Date</label>
+                        <input type="date" class="form-control renew-input" onchange="calcDays(this,1)" id="topRenew">
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <label class="form-label fw-semibold">NOD</label>
+                        <input type="number" class="form-control" id="topNOD">
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <label class="form-label fw-semibold days-input">Days</label>
+                        <input type="number" class="form-control" id="topDays" readonly>
+                    </div>
+                    <div class="col-12 col-md-5 d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-secondary top-btn flex-fill" id="btnFill" onclick="fillAllRows()">
+                            Fill
+                        </button>
+                        <button type="button" class="btn btn-primary top-btn flex-fill" id="btnApplyFilters">
+                            <i class="ti ti-filter-check me-1"></i>Search
+                        </button>
+                        <button type="button" class="btn btn-light top-btn flex-fill" id="btnResetFilters" onclick="resetAllFilters()">
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Hidden form for filter submission -->
+                    <form method="get" asp-action="AddStaff" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="pageIndex" id="hdnPageIndex" value="1" />
+                        <input type="hidden" name="search" id="hdnSearch" value="@Model.SearchTerm" />
+                        <input type="hidden" name="companyId" id="hdnCompanyId" value="" />
+                        <input type="hidden" name="departmentID" id="hdnDepartmentID" value="@Model.DepartmentID" />
+                        <input type="hidden" name="pageSize" id="hdnPageSize" value="@Model.PageSize" />
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supply a real session year value here (see model note) -->
+    <input type="hidden" id="hdnSessionYear" value="@Model.SessionYear" />
+
+    <div id="tblMembersWrapper">
+        @await Html.PartialAsync("_StaffsMembershipTable", Model)
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+    <script src="~/assets/js/LibraryStaffMembership.js"></script>
+}

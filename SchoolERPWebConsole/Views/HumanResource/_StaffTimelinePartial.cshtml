@@ -1,0 +1,763 @@
+﻿@using System.Security.Claims
+@using System.Text.Json
+@model SchoolERPWebConsole.Domain.HRStaddDetailsViewModel
+@{
+    ViewData["Title"] = "Add Class";
+    var p = Model.Permissions;
+    var timelineGroups = (Model.StaffTimeLine ?? new List<SchoolERPWebConsole.Domain.HRStaffTimelineViewModel>())
+        .OrderByDescending(x => x.TimelineDate)
+        .GroupBy(x => x.TimelineDate.Date)
+        .ToList();
+}
+<style>
+    :root {
+        --ink: #151b26;
+        --ink-soft: #5c6675;
+        --ink-faint: #9aa2b0;
+        --line: #e6e8ec;
+        --paper: #ffffff;
+        --canvas: #f4f5f7;
+        --accent: #2f5fe0;
+        --accent-dark: #2347b8;
+        --accent-soft: #eaf0ff;
+        --accent-line: #c9d8fb;
+        --good: #0f8a5f;
+        --good-soft: #e6f7ef;
+        --mute: #697180;
+        --mute-soft: #eef0f3;
+        --danger: #d1373b;
+        --danger-soft: #fdecec;
+        --radius: 12px;
+    }
+
+    .tl-wrap * {
+        box-sizing: border-box;
+    }
+
+    .tl-wrap {
+        color: var(--ink);
+        font-family: "Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+        padding: 24px;
+        border-radius: 16px;
+    }
+
+        .tl-wrap svg {
+            display: block;
+        }
+
+        .tl-wrap .ic {
+            width: 16px;
+            height: 16px;
+            flex: none;
+        }
+
+    .panel-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+        .panel-head h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+
+        .panel-head .sub {
+            font-size: 13px;
+            color: var(--ink-faint);
+            margin-top: 3px;
+        }
+
+    .btn-add {
+        background: var(--ink);
+        color: #fff;
+        border: none;
+        border-radius: 9px;
+        padding: 10px 16px;
+        font-size: 13.5px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .btn-add:hover {
+            background: #2a3140;
+            color: #fff;
+        }
+
+        .btn-add svg {
+            stroke: #fff;
+        }
+
+    .bulk-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-line);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        font-size: 13.5px;
+        color: var(--accent-dark);
+        font-weight: 600;
+    }
+
+        .bulk-bar.show {
+            display: flex;
+        }
+
+        .bulk-bar .actions {
+            display: flex;
+            gap: 18px;
+        }
+
+        .bulk-bar button {
+            background: none;
+            border: none;
+            color: var(--accent-dark);
+            font-weight: 600;
+            font-size: 13.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0;
+        }
+
+            .bulk-bar button svg {
+                stroke: var(--accent-dark);
+            }
+
+            .bulk-bar button.danger {
+                color: var(--danger);
+            }
+
+                .bulk-bar button.danger svg {
+                    stroke: var(--danger);
+                }
+
+    .tl-group {
+        margin-bottom: 26px;
+    }
+
+    .tl-date {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ink-faint);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin: 0 0 12px 46px;
+    }
+
+    .tl-item {
+        position: relative;
+        display: flex;
+        gap: 16px;
+        padding-bottom: 14px;
+    }
+
+        .tl-item::before {
+            content: "";
+            position: absolute;
+            left: 15px;
+            top: 32px;
+            bottom: 0;
+            width: 1px;
+            background: var(--line);
+        }
+
+    .tl-group:last-child .tl-item:last-child::before {
+        display: none;
+    }
+
+    .tl-node {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 1.5px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink-soft);
+        z-index: 1;
+        flex: 0 0 32px;
+    }
+
+        .tl-node svg {
+            stroke: var(--ink-soft);
+        }
+
+        .tl-node.checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+            .tl-node.checked svg {
+                stroke: #fff;
+            }
+
+    .tl-card {
+        flex: 1;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        transition: box-shadow .15s ease, border-color .15s ease;
+        min-width: 0;
+    }
+
+        .tl-card:hover {
+            box-shadow: 0 2px 8px rgba(20,25,40,.06);
+            border-color: #d7dbe2;
+        }
+
+        .tl-card.selected {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+    .tl-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .tl-left {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .tl-check {
+        margin-top: 4px;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 16px;
+        cursor: pointer;
+        accent-color: var(--accent);
+    }
+
+    .tl-title-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+    }
+
+    .tl-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    .tl-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+        .tl-badge svg {
+            width: 11px;
+            height: 11px;
+        }
+
+        .tl-badge.visible {
+            background: var(--good-soft);
+            color: var(--good);
+        }
+
+            .tl-badge.visible svg {
+                stroke: var(--good);
+            }
+
+        .tl-badge.hidden {
+            background: var(--mute-soft);
+            color: var(--mute);
+        }
+
+            .tl-badge.hidden svg {
+                stroke: var(--mute);
+            }
+
+    .tl-desc {
+        font-size: 13px;
+        color: var(--ink-soft);
+        margin: 5px 0 0;
+        line-height: 1.55;
+    }
+
+    .tl-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 9px;
+        font-size: 12px;
+        color: var(--ink-faint);
+    }
+
+        .tl-meta span, .tl-meta a {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tl-meta a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+            .tl-meta a:hover {
+                text-decoration: underline;
+            }
+
+        .tl-meta svg {
+            stroke: currentColor;
+        }
+
+    .tl-actions {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+    }
+
+        .tl-actions button {
+            width: 30px;
+            height: 30px;
+            border: 1px solid transparent;
+            background: var(--paper);
+            border-radius: 8px;
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .tl-actions button svg {
+                stroke: var(--ink-soft);
+            }
+
+            .tl-actions button:hover {
+                background: var(--canvas);
+                border-color: var(--line);
+            }
+
+            .tl-actions button.edit:hover {
+                color: var(--accent);
+            }
+
+                .tl-actions button.edit:hover svg {
+                    stroke: var(--accent);
+                }
+
+            .tl-actions button.del:hover {
+                color: var(--danger);
+                background: var(--danger-soft);
+                border-color: #f3c9ca;
+            }
+
+                .tl-actions button.del:hover svg {
+                    stroke: var(--danger);
+                }
+
+        .tl-actions a {
+            width: 30px;
+            height: 30px;
+            border: 1px solid transparent;
+            background: var(--paper);
+            border-radius: 8px;
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .tl-actions a svg {
+                stroke: var(--ink-soft);
+            }
+
+            .tl-actions a:hover {
+                background: var(--canvas);
+                border-color: var(--line);
+            }
+
+            .tl-actions a.edit:hover {
+                color: var(--accent);
+            }
+
+                .tl-actions a.edit:hover svg {
+                    stroke: var(--accent);
+                }
+
+            .tl-actions a.del:hover {
+                color: var(--danger);
+                background: var(--danger-soft);
+                border-color: #f3c9ca;
+            }
+
+                .tl-actions a.del:hover svg {
+                    stroke: var(--danger);
+                }
+
+    .empty {
+        text-align: center;
+        padding: 56px 20px;
+        color: var(--ink-faint);
+        background: var(--paper);
+        border: 1px dashed var(--line);
+        border-radius: var(--radius);
+    }
+
+        .empty svg {
+            margin: 0 auto 12px;
+            stroke: var(--ink-faint);
+        }
+
+        .empty p.h {
+            font-weight: 700;
+            color: var(--ink);
+            margin: 0 0 3px;
+            font-size: 14px;
+        }
+
+        .empty p {
+            font-size: 13px;
+            margin: 0;
+        }
+
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid var(--line);
+        padding: 16px 20px;
+    }
+
+        .modal-header .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        border-top: 1px solid var(--line);
+        padding: 14px 20px;
+    }
+
+    .form-label {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        margin-bottom: 6px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 9px;
+        border-color: var(--line);
+        font-size: 13.5px;
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+    .vis-toggle {
+        display: flex;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        overflow: hidden;
+        width: fit-content;
+    }
+
+        .vis-toggle button {
+            border: none;
+            background: var(--paper);
+            padding: 8px 15px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+            .vis-toggle button svg {
+                stroke: var(--ink-soft);
+            }
+
+            .vis-toggle button.active.visible {
+                background: var(--good-soft);
+                color: var(--good);
+            }
+
+                .vis-toggle button.active.visible svg {
+                    stroke: var(--good);
+                }
+
+            .vis-toggle button.active.hidden {
+                background: var(--mute-soft);
+                color: var(--mute);
+            }
+
+                .vis-toggle button.active.hidden svg {
+                    stroke: var(--mute);
+                }
+
+    .btn-save {
+        background: var(--accent);
+        border: none;
+        border-radius: 9px;
+        padding: 9px 18px;
+        font-size: 13.5px;
+        font-weight: 700;
+    }
+
+        .btn-save:hover {
+            background: var(--accent-dark);
+        }
+
+    .btn-cancel {
+        border-radius: 9px;
+        padding: 9px 16px;
+        font-size: 13.5px;
+        font-weight: 700;
+        border: 1px solid var(--line);
+        color: var(--ink-soft);
+        background: var(--paper);
+    }
+</style>
+
+<div class="tl-wrap">
+    <div class="bulk-bar" id="bulkBar">
+        <span id="bulkCount">0 selected</span>
+        <div class="actions">
+            <button type="button" onclick="clearSelection()">
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                Clear
+            </button>
+            @if (p.CanDelete)
+            {
+                <button type="button" class="danger" onclick="deleteSelected()">
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
+                    Delete
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (timelineGroups.Any())
+    {
+        <div class="tl">
+            @foreach (var grp in timelineGroups)
+            {
+                <div class="tl-group">
+                    <div class="tl-date">@grp.Key.ToString("dddd, MMMM d, yyyy")</div>
+
+                    @foreach (var item in grp.OrderByDescending(x => x.TimelineDate))
+                    {
+                        <div class="tl-item">
+                            <div class="tl-node"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;stroke:var(--ink-soft);"><circle cx="12" cy="12" r="3" /></svg></div>
+                            <div class="tl-card"
+                                 data-id="@item.TimelineID"
+                                 data-title="@item.TimelineTitle"
+                                 data-desc="@item.TimelineDescription"
+                                 data-date="@item.TimelineDate.ToString("yyyy-MM-dd")"
+                                 data-time="@item.TimelineDate.ToString("HH:mm")"
+                                 data-visible="@(item.TimelineVisible ? "1" : "0")">
+                                <div class="tl-top">
+                                    <div class="tl-left">
+                                        <input type="checkbox" class="tl-check d-none" onclick="toggleSelect(@item.TimelineID, this)">
+                                        <div style="min-width:0;">
+                                            <div class="tl-title-row">
+                                                <span class="tl-title">@item.TimelineTitle</span>
+                                                @if (item.TimelineVisible)
+                                                {
+                                                    <span class="tl-badge visible">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                        Visible
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="tl-badge hidden">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.4 5.5A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a13.3 13.3 0 0 1-2.3 3.1M6.1 6.1C3.6 7.7 2 10 2 10s3.5 7 10 7a9.7 9.7 0 0 0 3.4-.6" /></svg>
+                                                        Hidden
+                                                    </span>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(item.TimelineDescription))
+                                            {
+                                                <p class="tl-desc">@item.TimelineDescription</p>
+                                            }
+                                            <div class="tl-meta">
+                                                <span>
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                                                    @item.TimelineDate.ToString("h:mm tt")
+                                                </span>
+                                                @if (!string.IsNullOrWhiteSpace(item.TimelineAttachDoc))
+                                                {
+                                                    <a href="/StudentInformation/DownloadTimelineDoc/@item.TimelineID">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M21.4 11.5 12.3 20.6a5 5 0 0 1-7.1-7.1l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-2.8-2.8l8.1-8.1" /></svg>
+                                                        @item.TimelineAttachDocName
+                                                    </a>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tl-actions">
+                                        @if (p.CanEdit)
+                                        {
+                                            <a href="/HumanResource/AddStaffTimeline?id=@item.TimelineID&staffid=@item.StaffID" class="edit">
+                                                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
+                                            </a>
+                                        }
+                                        @if (p.CanDelete)
+                                        {
+                                            <button type="button" class="del" onclick="handleDeleteTimeline(@item.TimelineID)" aria-label="Delete">
+                                                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" /></svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="34" height="34"><path d="M12 8v5l3 2" /><circle cx="12" cy="13" r="8" /><path d="M9 3h6M12 3v2" /></svg>
+            <p class="h">No timeline entries yet</p>
+            <p>Add the first entry to start this student's record.</p>
+        </div>
+    }
+</div>
+
+
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center pt-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#d1373b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28" style="margin:0 auto;"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+                <p style="font-weight:700;margin:12px 0 4px;" id="delTitle">Delete this entry?</p>
+                <p style="font-size:13px;color:var(--ink-soft);">This can't be undone.</p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pb-4">
+                <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger text-white" style="border-radius:9px;" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* -------------------------------------------------------------------
+       All data now comes from the server-rendered .tl-card elements
+       (via data-* attributes) instead of an in-memory JS array.
+       Wire the three TODOs below to your real MVC actions.
+    ------------------------------------------------------------------- */
+    let selected = new Set();
+    let pendingVisibility = 1;
+    let deleteId = null;
+    let deleteIsBulk = false;
+
+
+    function clearSelection(){
+      selected.clear();
+      document.querySelectorAll(".tl-check").forEach(c => c.checked = false);
+      document.querySelectorAll(".tl-card").forEach(c => c.classList.remove("selected"));
+      document.getElementById("bulkBar").classList.remove("show");
+    }
+
+    function setVisibility(v){
+      pendingVisibility = v;
+      document.querySelectorAll("#visToggle button").forEach(b=>{
+        b.classList.toggle("active", Number(b.dataset.val) === v);
+      });
+    }
+
+    function openAddModal(){
+      document.getElementById("modalTitleText").textContent = "Add timeline entry";
+      document.getElementById("fId").value = "0";
+      document.getElementById("fTitle").value = "";
+      document.getElementById("fDesc").value = "";
+      document.getElementById("fDate").value = new Date().toISOString().slice(0,10);
+      document.getElementById("fTime").value = new Date().toTimeString().slice(0,5);
+      document.getElementById("fFile").value = "";
+      document.getElementById("errTitle").style.display = "none";
+      setVisibility(1);
+    }
+
+    function openEditModal(btn){
+      const card = btn.closest(".tl-card");
+      document.getElementById("modalTitleText").textContent = "Edit timeline entry";
+      document.getElementById("fId").value = card.dataset.id;
+      document.getElementById("fTitle").value = card.dataset.title;
+      document.getElementById("fDesc").value = card.dataset.desc;
+      document.getElementById("fDate").value = card.dataset.date;
+      document.getElementById("fTime").value = card.dataset.time;
+      document.getElementById("fFile").value = "";
+      document.getElementById("errTitle").style.display = "none";
+      setVisibility(card.dataset.visible === "1" ? 1 : 0);
+      new bootstrap.Modal(document.getElementById("entryModal")).show();
+    }
+
+    
+    function askDelete(id, title){
+      deleteId = id;
+      deleteIsBulk = false;
+      document.getElementById("delTitle").textContent = `Delete "${title}"?`;
+      new bootstrap.Modal(document.getElementById("deleteModal")).show();
+    }
+    function deleteSelected(){
+      deleteIsBulk = true;
+      document.getElementById("delTitle").textContent = `Delete ${selected.size} entries?`;
+      new bootstrap.Modal(document.getElementById("deleteModal")).show();
+    }
+    function confirmDelete(){
+      const ids = deleteIsBulk ? Array.from(selected) : [deleteId];
+
+      /* TODO: point this at your real delete action */
+      fetch("/HumanResource/DeleteTimeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TimelineIDs: ids })
+      })
+        .then(r => r.json())
+        .then(res => {
+          bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
+          if(res.result === 1 || res.Result === 1){
+            location.reload();
+          } else {
+            alert(res.message || res.Message || "Unable to delete");
+          }
+        })
+        .catch(() => alert("Unable to delete"));
+    }
+
+    document.getElementById("entryModal").addEventListener("hidden.bs.modal", ()=>{
+      document.getElementById("fId").value = "0";
+    });
+</script>

@@ -1,0 +1,186 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.WeeklyHolidaysSettingPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="HolidayTypeTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:50px" class="ps-3">Select</th>
+                                <th>Company Type</th>
+                                <th>Company Code</th>
+                                <th>Sunday</th>
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                                <th>Saturday</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.WeeklyHolidaysSetting != null)
+                            {
+                                @foreach (var c in Model.WeeklyHolidaysSetting)
+                                {
+                                    <tr class="item-row" onclick="selectItem(@c.Id, this)" style="cursor: pointer;">
+                                        <td class="ps-3">
+                                            <input type="checkbox" name="selectedComplaintType"
+                                                   class="form-check-input student-checkbox"
+                                                   value="@c.Id">
+
+                                        </td>
+                                        <td>@c.SchoolName</td>
+                                        <td>@c.SchoolCode</td>
+                                        <td>@(c.IsSaturday ? "Yes" : "No")</td>
+                                        <td>@(c.IsMonday ? "Yes" : "No")</td>
+                                        <td>@(c.IsTuesday ? "Yes" : "No")</td>
+                                        <td>@(c.IsWednesday ? "Yes" : "No")</td>
+                                        <td>@(c.IsThursday ? "Yes" : "No")</td>
+                                        <td>@(c.IsFriday ? "Yes" : "No")</td>
+                                        <td>@(c.IsSaturday ? "Yes" : "No")</td>                                        
+                                        <td>
+                                            <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                <input class="form-check-input" type="checkbox"
+                                                       onchange="toggleStatus(@c.Id,this.checked,this);"
+                                                @(c.IsActive ? "checked" : "")
+                                                @(p.CanEdit ? "" : "disabled")>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="11" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attachment Preview Popup -->
+<div class="modal fade" id="modalDispatchAttachment" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title mb-0" id="modalDispatchAttachmentTitle">Attachment</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="min-height: 70vh;">
+
+
+                <img id="imgDispatchAttachment"
+                     src=""
+                     style="display:none; max-width:100%; max-height:70vh; margin:0 auto; object-fit:contain;" />
+
+                <iframe id="frmDispatchAttachment" src="" style="width:100%; height:70vh; border:0; display:none;"></iframe>
+
+                <div id="dispatchAttachmentUnsupported" class="d-none flex-column align-items-center justify-content-center text-center text-muted p-5" style="height:70vh;">
+                    <i class="ti ti-file-unknown mb-2" style="font-size:2rem;"></i>
+                    <div>Preview isn't available for this file type.</div>
+                    <div class="fs-13">Use the Download button above to open it.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btnDownloadDispatchAttachment" class="btn btn-sm btn-primary" title="Download">
+                    <i class="ti ti-download me-1"></i>
+                    <span id="btnDownloadDispatchAttachmentLabel">Download</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

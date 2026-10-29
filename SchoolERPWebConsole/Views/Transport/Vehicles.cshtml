@@ -1,0 +1,381 @@
+@model SchoolERPWebConsole.Domain.VehiclePageViewModel
+@using System.Text.Json
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Vehicle Management";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+    var items = (Model.Items ?? new List<VehicleViewModel>())
+            .Where(x => x != null && x.VehicleID > 0)
+            .ToList();
+}
+
+@section Styles {
+    <style>
+        .dt-buttons { display: none !important; }
+    </style>
+}
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Vehicle List</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (p.CanAdd)
+        {
+            <a href="/Transport/AddVehicle" class="btn btn-primary top-btn"><i class="ti ti-plus me-1"></i>Add</a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i> Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger top-btn" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i> Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <!-- Filters -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 ">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearchInput"
+                               placeholder="Search by number,model,driver..." style="min-width: 220px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12">
+        <div class="card shadow-tbl">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    @if (ViewBag.ErrorMessage != null)
+                    {
+                        <div class="alert alert-danger py-2">Error: @ViewBag.ErrorMessage</div>
+                    }
+                    <table class="table mb-0" id="tblVehicles">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Select</th>
+                                <th>Vehicle No</th>
+                                <th>Model</th>
+                                <th>Reg No</th>
+                                <th>Capacity</th>
+                                <th>Driver Name</th>
+                                <th>Contact</th>
+                                <th style="width: 100px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in items)
+                            {
+                                <tr class="item-row" onclick="selectItem(@item.VehicleID, this)" style="cursor: pointer;">
+                                    <td class="ps-3">
+                                        <input type="checkbox" name="selectedItem"
+                                               class="form-check-input vehicles-checkbox"
+                                               value="@item.VehicleID">
+                                    </td>
+                                    <td>
+                                        <a href="/Transport/ViewVehicle/@item.VehicleID" class="text-primary fw-semibold text-decoration-none" onclick="event.stopPropagation()">
+                                            @item.VehicleNumber
+                                        </a>
+                                    </td>
+                                    <td>@item.VehicleModel</td>
+                                    <td>@item.VehicleRegNo</td>
+                                    <td>@item.VehicleMaxCapicity</td>
+                                    <td>@item.VehicleDriverName</td>
+                                    <td>@item.VehicleDriverContact</td>
+                                    <td>
+                                        <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                            <input class="form-check-input" type="checkbox"
+                                                   onchange="toggleStatus(@item.VehicleID, this.checked)"
+                                                   @(item.IsActive ? "checked" : "")
+                                                   @(p.CanEdit ? "" : "disabled")>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts {
+    <script>
+        const currentUserId = @currentUserId;
+        function triggerExport(index) {
+            if ($.fn.DataTable.isDataTable('#tblVehicles')) {
+                const table = $('#tblVehicles').DataTable();
+                table.button(index).trigger();
+            }
+        }
+
+        $(document).ready(function () {
+            $('#tblVehicles').DataTable({
+                dom: 'Bfrtip',
+                buttons: [
+                    { extend: 'copy', exportOptions: { columns: [1, 2, 3, 4, 5, 6] } },
+                    { extend: 'csv', exportOptions: { columns: [1, 2, 3, 4, 5, 6] } },
+                    { extend: 'excel', exportOptions: { columns: [1, 2, 3, 4, 5, 6] } },
+                    { extend: 'pdf', exportOptions: { columns: [1, 2, 3, 4, 5, 6] } },
+                    { extend: 'print', exportOptions: { columns: [1, 2, 3, 4, 5, 6] } }
+                ],
+                searching: false,
+                paging: false,
+                info: false,
+
+                language: {
+                    emptyTable: "No records found.",
+                    zeroRecords: "No records found.",
+                    search: ""
+                }
+            });
+        });
+
+        let selectedId = 0;
+        const canEdit = @p.CanEdit.ToString().ToLower();
+        const canDelete = @p.CanDelete.ToString().ToLower();
+
+        function selectItem(id, row) {
+            selectedId = id;
+            document.querySelectorAll('.item-row').forEach(r => r.classList.remove('bg-light'));
+            row.classList.add('bg-light');
+
+            let checkedCount = $('.vehicles-checkbox:checked').length;
+            $('#btnDelete').prop('disabled', checkedCount === 0);
+            $('#btnEdit').prop('disabled', checkedCount !== 1);
+            $('#btnActive').prop('disabled', checkedCount === 0);
+            $('#btnInactive').prop('disabled', checkedCount === 0);
+        }
+        document.getElementById('txtSearchInput').addEventListener('keyup', function () {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#tblVehicles tbody tr').forEach(row => {
+                if (row.classList.contains('item-row')) {
+                    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+                }
+            });
+        });
+
+        function getSelectedVehicleIds() {
+            let ids = [];
+            $('.vehicles-checkbox:checked').each(function () {
+                ids.push(parseInt($(this).val()));
+            });
+            return ids;
+        }
+
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => document.getElementById('imgPreview').src = e.target.result;
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearError(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('is-invalid');
+        }
+
+
+
+        function editSelected() {
+            if (selectedId == 0)
+                return;
+            location.href = "/Transport/AddVehicle/" + selectedId;
+        }
+
+
+        function deleteSelected() {
+            if (!selectedId) return;
+
+            let selectedIds = [];
+            $('.vehicles-checkbox:checked').each(function () {
+                selectedIds.push(parseInt($(this).val()));
+            });
+            if (selectedIds.length === 0) {
+                alert("Please select at least one student.");
+                return;
+            }
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You are about to delete this vehicle record. This action cannot be undone!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!',
+                customClass: {
+                    confirmButton: 'btn btn-danger me-2',
+                    cancelButton: 'btn btn-secondary'
+                },
+                buttonsStyling: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/Transport/DeleteVehicle',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(selectedIds),
+                        success: function (res) {
+                            if (res.success) {
+                                Swal.fire('Deleted!', 'Vehicle record has been deleted.', 'success')
+                                    .then(() => location.reload());
+                            } else {
+                                Swal.fire('Error!', res.message || 'Failed to delete vehicle.', 'error');
+                            }
+                        },
+                        error: function () {
+                            Swal.fire('Error!', 'An unexpected error occurred.', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        window.toggleStatus = async function (id, isActive) {
+            let ids = (id && id !== 0) ? [parseInt(id)] : getSelectedVehicleIds();
+
+            if (ids.length === 0) {
+                Swal.fire('Oops!', 'Please select at least one ID Card.', 'warning');
+                return;
+            }
+
+            const request = {
+                ids: ids.join(','),
+                isActive: isActive,
+                doneBy: currentUserId
+            };
+
+            const config = isActive
+                ? {
+                    icon: 'question',
+                    title: 'Activate Record(s)?',
+                    text: 'Activating will make the selected record(s) visible and available for use across the system. Continue?',
+                    confirmButtonText: 'Yes, Activate',
+                    confirmButtonColor: '#198754',
+                    confirmButtonClass: 'btn btn-success me-2',
+                    successTitle: 'Activated!',
+                    successText: 'The selected record(s) have been activated.'
+                }
+                : {
+                    icon: 'warning',
+                    title: 'Deactivate Record(s)?',
+                    text: 'Deactivating will hide the selected record(s) and prevent them from being used. Continue?',
+                    confirmButtonText: 'Yes, Deactivate',
+                    confirmButtonColor: '#d33',
+                    confirmButtonClass: 'btn btn-danger me-2',
+                    successTitle: 'Deactivated!',
+                    successText: 'The selected record(s) have been deactivated.'
+                };
+
+            try {
+                const result = await Swal.fire({
+                    icon: config.icon,
+                    title: config.title,
+                    text: config.text,
+                    showCancelButton: true,
+                    confirmButtonColor: config.confirmButtonColor,
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: config.confirmButtonText,
+                    customClass: {
+                        confirmButton: config.confirmButtonClass,
+                        cancelButton: 'btn btn-secondary'
+                    },
+                    buttonsStyling: false
+                });
+
+                if (!result.isConfirmed) {
+                    // if this was a row-level switch being clicked, revert the visual toggle on cancel
+                    if (id && id !== 0) location.reload();
+                    return;
+                }
+
+                $.ajax({
+                    url: '/Transport/ToggleVehicleStatus',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(request),
+                    success: function (res) {
+                        if (res.success) {
+                            Swal.fire(config.successTitle, res.message || config.successText, 'success')
+                                .then(() => location.reload());
+                        } else {
+                            Swal.fire('Error!', res.message || 'Failed to update status.', 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        console.error('Status update error:', xhr.status, xhr.responseText);
+                        Swal.fire('Error!', 'An unexpected error occurred.', 'error');
+                    }
+                });
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error!', 'Could not update status.', 'error');
+            }
+        };
+
+        function showToast(msg, type = 'success') {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `<div class="toast align-items-center text-bg-${type} border-0 show position-fixed bottom-0 end-0 m-3" role="alert" style="z-index:9999">
+                        <div class="d-flex"><div class="toast-body">${msg}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div></div>`;
+            document.body.appendChild(wrapper);
+            setTimeout(() => wrapper.remove(), 3000);
+        }
+</script>
+}
+

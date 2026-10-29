@@ -1,0 +1,31 @@
+﻿@* Views/Shared/_CompanySessionFilter.cshtml *@
+@model CompanySessionFilterViewModel
+
+<div class="col-md-6 mb-3">
+    <label class="form-label mb-1">Company</label>
+    <select class="form-select form-control select2"
+            id="@Model.CompanyDdlId"
+            data-role="filter-company"
+            data-target="#@Model.SessionDdlId"
+            data-placeholder="Select company">
+        <option value="">All</option>
+        @foreach (var c in Model.Companies ?? new())
+        {
+            <option value="@c.CompanyId" selected="@(Model.CompanyId == c.CompanyId)">@c.SchoolName</option>
+        }
+    </select>
+</div>
+<div class="col-md-6 mb-3">
+    <label class="form-label mb-1">Session</label>
+    <select class="form-select form-control select2"
+            id="@Model.SessionDdlId"
+            data-role="filter-session"
+            data-preselect="@Model.SessionId"
+            data-placeholder="Select session">
+        <option value="">All</option>
+        @foreach (var s in Model.Sessions ?? new())
+        {
+            <option value="@s.SessionId" selected="@(Model.SessionId == s.SessionId)">@s.SessionTitle</option>
+        }
+    </select>
+</div>

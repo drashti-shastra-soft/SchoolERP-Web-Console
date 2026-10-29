@@ -1,0 +1,235 @@
+﻿@*
+    ======================================================================
+    VIEW: NoticeBoard / Index.cshtml
+    PURPOSE: Notice Board list - search, filters, paging, bulk actions.
+    UI ONLY CHANGE: list design from notice-board.html (see the partial).
+    All element ids / handlers are unchanged, so NoticeBoard.js works as before.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.NoticeBoardPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Notice Board";
+    var p = Model.Permissions;
+}
+
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Notice Board</h6>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <a href="/NoticeBoard/Add" class="btn btn-primary top-btn" id="btnAddNotice">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger top-btn" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="noticePageNotice"></div>
+
+<div class="row">
+
+    <div class="col-xl-12 d-none">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <!-- Search box -->
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               id="txtSearchInput"
+                               value="@Model.SearchTerm"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Search by Title or Message..." />
+                    </div>
+
+                    <!-- Hidden form : field names match NoticeBoardSearchRequest -->
+                    <form method="get" asp-action="GetNoticeBoardPartial" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="PageNumber" id="hdnPageIndex" value="1" />
+                        <input type="hidden" name="PageSize" id="hdnPageSize" value="@Model.PageSize" />
+                        <input type="hidden" name="SearchKeyword" id="hdnSearch" value="@Model.SearchTerm" />
+                        <input type="hidden" name="SessionId" id="hdnSessionID" value="@Model.SessionId" />
+                        <input type="hidden" name="CompanyId" id="hdnCompanyId" value="@Model.CompanyId" />
+                        <input type="hidden" name="FromDate" id="hdnFromDate" value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" />
+                        <input type="hidden" name="ToDate" id="hdnToDate" value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" />
+                        <input type="hidden" name="IsActive" id="hdnIsActive" value="@(Model.IsActive?.ToString().ToLower())" />
+                    </form>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggle"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl"
+                             id="filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn text-primary" id="btnResetFilters">
+                                        <i class="ti ti-refresh me-1"></i>Reset
+                                    </button>
+                                    <button type="button" class="btn text-primary" id="btnApplyFilters">
+                                        <i class="ti ti-filter me-1"></i>Apply
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none"
+                                            id="btnCloseFilter" aria-label="Close">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="filter-body pb-0">
+                                <div class="row">
+                                    @await Html.PartialAsync("_CompanySessionFilter", new CompanySessionFilterViewModel
+                               {
+                                   Companies = Model.Companies,
+                                   Sessions = Model.Sessions,
+                                   CompanyId = Model.CompanyId,
+                                   SessionId = Model.SessionId
+                               })
+
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label" for="dtFromDate">Notice Date From</label>
+                                        <input type="date" class="form-control" id="dtFromDate"
+                                               value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" />
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label" for="dtToDate">Notice Date To</label>
+                                        <input type="date" class="form-control" id="dtToDate"
+                                               value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" />
+                                    </div>
+
+                                    @if (Model.IsSuperAdmin)
+                                    {
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label" for="ddlFilterStatus">Status</label>
+                                            <select class="form-select" id="ddlFilterStatus">
+                                                <option value="">All</option>
+                                                <option value="true" selected="@(Model.IsActive == true)">Active</option>
+                                                <option value="false" selected="@(Model.IsActive == false)">Inactive</option>
+                                            </select>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notice list (list-group) + pagination + hidden export table + offcanvas details -->
+    <div id="NoticeBoardTableContainer">
+        @await Html.PartialAsync("_NoticeBoardTablePartial", Model)
+    </div>
+
+</div>
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+
+        /* Select2 Bootstrap 5 Integration */
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            min-height: 38px;
+            padding: 2px 5px;
+        }
+
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-dropdown {
+            z-index: 1060;
+        }
+
+        /* notice details offcanvas (opened from the list) */
+        .offcanvas.offcanvas-end {
+            width: 400px;
+            max-width: 100%;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+        window.isSuperAdmin = @JsonSerializer.Serialize(Model.IsSuperAdmin);
+    </script>
+
+    <script src="~/assets/js/NoticeBoard.js"></script>
+}

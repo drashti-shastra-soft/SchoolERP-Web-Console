@@ -1,0 +1,265 @@
+﻿@model SchoolERPWebConsole.Domain.AccountEntryPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+    var pageSize = Model.PageSize > 0
+       ? Model.PageSize
+       : 10;
+
+    var requestedPage = 1;
+
+    if (int.TryParse(
+        Context.Request.Query["pageIndex"],
+        out var queryPage))
+    {
+        requestedPage = queryPage;
+    }
+
+    var currentPage = requestedPage < 1
+        ? 1
+        : requestedPage;
+
+    var totalRecords = Math.Max(Model.TotalRecords, 0);
+
+    var totalPages = totalRecords == 0
+        ? 1
+        : (int)Math.Ceiling(
+            (double)totalRecords / pageSize
+          );
+
+    if (currentPage > totalPages)
+    {
+        currentPage = totalPages;
+    }
+
+    var firstRecord = totalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    var lastRecord = totalRecords == 0
+        ? 0
+        : Math.Min(currentPage * pageSize, totalRecords);
+
+    var searchTerm = Model.SearchTerm ?? "";
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table mb-0" id="tblExpense">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width: 50px;" class="ps-3">Select</th>
+                                <th>Name</th>
+                                <th>Head</th>
+                                <th>Invoice No</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Doc</th>
+                                <th style="width: 100px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items != null)
+                            {
+                                @foreach (var item in Model.Items)
+                                {
+                                    <!--
+                                        FIX: row no longer calls an external selectItem(id, this) —
+                                        that function isn't guaranteed to exist / match this page's
+                                        checkbox class (see AccountHead.js for the same bug, fixed
+                                        earlier). The row now just visually highlights on click, and
+                                        the checkbox drives its own selection state directly via
+                                        onchange="acctEntryToggleSelect(...)", which is self-contained
+                                        (defined at the bottom of this partial's script) and doesn't
+                                        depend on any other file being loaded correctly.
+                                    -->
+                                    <tr class="item-row" data-entry-id="@item.AccountEntryID"
+                                        onclick="acctEntryRowClick(event, @item.AccountEntryID)">
+                                        <td class="ps-3" onclick="event.stopPropagation()">
+                                            <input type="checkbox" name="selectedItem" style="cursor: pointer;"
+                                                   class="form-check-input student-checkbox acctentry-checkbox"
+                                                   value="@item.AccountEntryID"
+                                                   onchange="acctEntryToggleSelect(@item.AccountEntryID, this)">
+                                        </td>
+
+                                        <td>@item.Name</td>
+                                        <td>@item.HeadName</td>
+                                        <td>@item.InvoiceNo</td>
+                                        <td>@item.Date.ToString("dd-MMM-yyyy")</td>
+                                        <td>@item.Amount.ToString("N2")</td>
+                                        <td>
+                                            @if (item.AttachDoc != null && item.AttachDoc.Length > 0)
+                                            {
+                                                var attachmentFileName = System.IO.Path.GetFileName(item.AttachDoc);
+                                                <a href="javascript:void(0)"
+                                                   class="btn btn-sm btn-white border px-2 py-1 btn-view-attachment"
+                                                   title="View Attachment"
+                                                   onclick="event.stopPropagation(); viewDispatchAttachment(@item.AccountEntryID, '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(item.HeadName ?? item.HeadName ?? "Attachment"))', '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(attachmentFileName))', '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(item.AttachDoc))')">
+                                                    <i class="ti ti-paperclip fs-5"></i>
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted fs-7">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                <input class="form-check-input" type="checkbox"
+                                                       onchange="toggleStatus(@item.AccountEntryID, this.checked)"
+                                                @(item.IsActive ? "checked" : "")
+                                                @(p.CanEdit ? "" : "disabled")>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="7" class="text-center text-muted py-4">No records found.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalRecords > 0)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@firstRecord</strong>
+                                –
+                                <strong>@lastRecord</strong>
+                                of
+                                <strong>@totalRecords</strong>
+                                main menus
+                            </div>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Menu pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        @{
+                                            var firstUrl =
+                                            $"?pageIndex=1&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+
+                                            var previousPage = Math.Max(1, currentPage - 1);
+
+                                            var previousUrl =
+                                            $"?pageIndex={previousPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+                                        }
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@firstUrl"
+                                               aria-label="First page">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@previousUrl"
+                                               aria-label="Previous page">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @{
+                                            var startPage = Math.Max(1, currentPage - 2);
+                                            var endPage = Math.Min(totalPages, startPage + 4);
+
+                                            if (endPage - startPage < 4)
+                                            {
+                                                startPage = Math.Max(1, endPage - 4);
+                                            }
+                                        }
+
+                                        @for (var pg = startPage; pg <= endPage; pg++)
+                                        {
+                                            var pageUrl =
+                                            $"?pageIndex={pg}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}&companyId={@Model.CompanyId}&sessionID={@Model.SessionId}";
+
+                                            <li class="page-item @(pg == currentPage ? "active" : "")">
+                                                <a class="page-link"
+                                                   href="@pageUrl"
+                                                   aria-current="@(pg == currentPage ? "page" : null)">
+                                                    @pg
+                                                </a>
+                                            </li>
+                                        }
+
+                                        @{
+                                            var nextPage = Math.Min(totalPages, currentPage + 1);
+
+                                            var nextUrl =
+                                            $"?pageIndex={nextPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            var lastUrl =
+                                            $"?pageIndex={totalPages}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@nextUrl"
+                                               aria-label="Next page">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@lastUrl"
+                                               aria-label="Last page">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            }
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attachment Preview Popup -->
+<div class="modal fade" id="modalDispatchAttachment" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title mb-0" id="modalDispatchAttachmentTitle">Attachment</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="min-height: 70vh;">
+
+
+                <img id="imgDispatchAttachment"
+                     src=""
+                     style="display:none; max-width:100%; max-height:70vh; margin:0 auto; object-fit:contain;" />
+
+                <iframe id="frmDispatchAttachment" src="" style="width:100%; height:70vh; border:0; display:none;"></iframe>
+
+                <div id="dispatchAttachmentUnsupported" class="d-none flex-column align-items-center justify-content-center text-center text-muted p-5" style="height:70vh;">
+                    <i class="ti ti-file-unknown mb-2" style="font-size:2rem;"></i>
+                    <div>Preview isn't available for this file type.</div>
+                    <div class="fs-13">Use the Download button above to open it.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btnDownloadDispatchAttachment" class="btn btn-sm btn-primary" title="Download">
+                    <i class="ti ti-download me-1"></i>
+                    <span id="btnDownloadDispatchAttachmentLabel">Download</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

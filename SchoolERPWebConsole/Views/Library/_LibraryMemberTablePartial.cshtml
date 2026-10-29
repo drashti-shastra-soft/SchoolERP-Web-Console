@@ -1,0 +1,222 @@
+﻿@model SchoolERPWebConsole.Domain.MemberPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{    
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="tab-content">
+                <!-----System Pane---->
+                <div class="tab-pane active" id="system">
+                    <div class="sticky-table">
+                        <div class="table-responsive">
+                            <table class="table mb-0" id="tblMembers">
+                                <thead>
+                                    <tr class="bg-light">
+                                        <th style="width: 50px;">#</th>
+                                        <th>Member ID</th>
+                                        <th>Library Card No</th>
+                                        <th>Admission No</th>
+                                        <th>Name</th>
+                                        <th>Member Type</th>
+                                        <th>Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="memberTableBody">
+                                    @if (Model.Items != null)
+                                    {
+                                        @foreach (var c in Model.Items)
+                                        {
+                                            <tr class="item-row">
+
+                                                <td class="ps-4 text-center">
+                                                    <input type="checkbox" name="selectedClass" style="cursor: pointer; vertical-align: middle;"
+                                                           class="form-check-input student-checkbox" onclick="selectItem(@c.LibraryMemberID, this)"
+                                                           value="@c.LibraryMemberID">
+
+                                                </td>
+                                                <td>@c.LibraryMemberID</td>
+                                                <td>@c.LibraryCardNo</td>
+                                                <td>@c.AdmissionNo</td>
+                                                <td>@c.Name</td>
+                                                <td>@c.MemberType</td>
+                                                <td>@c.MobileNo</td>
+
+                                            </tr>
+                                        }
+
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4">
+                                                <span class="text-muted">No records found.</span>
+                                            </td>
+                                        </tr>
+                                    }
+
+
+                                </tbody>
+                            </table>
+                            <!-- ── Pagination ─────────────────────────────────────────────── -->
+                            @if (totalPages > 1)
+                            {
+                                <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                                    <!-- Record info -->
+                                    <div class="text-muted small">
+                                        Showing
+                                        <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                        –
+                                        <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                        of
+                                        <strong>@Model.TotalRecords</strong> users
+                                    </div>
+
+                                    <nav aria-label="Subject pagination">
+                                        <ul class="pagination pagination-sm mb-0">
+
+                                            <!-- First -->
+                                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                                <a class="page-link"
+                                                   href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                                    <i class="ti ti-chevrons-left"></i>
+                                                </a>
+                                            </li>
+
+                                            <!-- Prev -->
+                                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                                <a class="page-link"
+                                                   href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                                    <i class="ti ti-chevron-left"></i>
+                                                </a>
+                                            </li>
+
+                                            <!-- Page numbers — show 5 around current -->
+                                            @{
+                                                int start = Math.Max(1, Model.PageNumber - 2);
+                                                int end = Math.Min(totalPages, start + 4);
+                                                start = Math.Max(1, end - 4);
+                                            }
+                                            @for (int pg = start; pg <= end; pg++)
+                                            {
+                                                <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                                    <a class="page-link"
+                                                       href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">@pg</a>
+                                                </li>
+                                            }
+
+                                            <!-- Next -->
+                                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                                <a class="page-link"
+                                                   href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                                    <i class="ti ti-chevron-right"></i>
+                                                </a>
+                                            </li>
+
+                                            <!-- Last -->
+                                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                                <a class="page-link"
+                                                   href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                                    <i class="ti ti-chevrons-right"></i>
+                                                </a>
+                                            </li>
+
+                                        </ul>
+                                    </nav>
+
+                                </div>
+                            }
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-----Student Pane---->
+                <div class="tab-pane" id="std">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        Transport
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="form-check form-switch ">
+                                            <input class="form-check-input float-end" type="checkbox" role="switch" id="switchCheckChecked" checked>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Transport
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="form-check form-switch ">
+                                            <input class="form-check-input float-end" type="checkbox" role="switch" id="switchCheckChecked" checked>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-----Parent Pane---->
+                <div class="tab-pane" id="prt">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        Transport
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="form-check form-switch ">
+                                            <input class="form-check-input float-end" type="checkbox" role="switch" id="switchCheckChecked" checked>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Transport
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="form-check form-switch ">
+                                            <input class="form-check-input float-end" type="checkbox" role="switch" id="switchCheckChecked" checked>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+
+            </div>
+
+        </div>
+        <!-- end card-body -->
+    </div>
+    <!-- end card -->
+</div>

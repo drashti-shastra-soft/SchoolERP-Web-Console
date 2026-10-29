@@ -1,0 +1,187 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.SharedLinkPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+}
+
+<div class="col-xl-12 d-none" id="card-v">
+    <div class="row" id="cardContainer">
+        @if (Model.Items != null)
+        {
+            @foreach (var item in Model.Items)
+            {
+                <div class="col-xl-6 col-md-12 content-item-card">
+                    <div class="card shadow-tbl-outer mb-2">
+                        <div class="card-body d-flex align-items-center flex-sm-nowrap flex-wrap row-gap-3 position-relative">
+                            <input type="checkbox" name="rowCheck" class="form-check-input content-check position-absolute" style="top:10px;left:10px;" value="@item.ContentID" data-title="@item.Title">
+                            <div class="me-3 d-flex align-items-center ps-3">
+                                <div class="file-icon-img d-flex align-items-center justify-content-center bg-light rounded" style="width: 60px; height: 60px;">
+                                    <i class="ti ti-@(item.FileType == "File" ? "file-description" : "brand-youtube") fs-1 text-@(item.FileType == "File" ? "info" : "danger")"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fs-15">
+                                    <a href="@item.FilePath" target="_blank" class="text-primary">@item.Title</a>
+                                </h6>
+                                <div class="d-flex justify-content-between mb-1 gap-2">
+                                    <div class="flex-fill">
+                                        <p class="mb-1 fs-13"><span class="text-dark">Type</span> : @item.ContentTypeName</p>
+                                        <p class="mb-1 fs-13"><span class="text-dark">Format</span> :@item.FileType</p>
+                                        <p class="mb-1 fs-13"><span class="text-dark">Size</span> : @item.FileSize</p>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <p class="mb-1 fs-13"><span class="text-dark">Upload By</span> : @item.UploadBy</p>
+                                        <p class="mb-1 fs-13"><span class="text-dark">Date</span> :@item.CreatedOn.ToString("dd-mm-yyyy")</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<div class="col-xl-12" id="list-v">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="tblContent">
+                        <thead>
+                            <tr class="bg-light">                                
+                                <th class="ps-4" style="width: 50px;">
+                                    Select <input type="checkbox" class="form-check-input" id="checkAll" onchange="toggleAllCheckboxes()">
+                                </th>
+                                <th>Document / Link</th>
+                                <th>Type</th>
+                                <th>Format</th>
+                                <th>Size</th>
+                                <th>Upload By</th>
+                                <th>Created On</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items != null)
+                            {
+                                @foreach (var item in Model.Items)
+                                {
+                                    <tr class="item-row">
+
+                                        <td class="ps-4 text-center">
+                                            <input type="checkbox" name="selectedClass" style="cursor: pointer; vertical-align: middle;"
+                                                   class="form-check-input content-check" onclick="selectItem(@item.ContentID, this)"
+                                                   value="@item.ContentID" data-title="@item.Title">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="ti ti-@(item.FileType == "File" ? "file-description" : "brand-youtube") me-2 text-@(item.FileType == "File" ? "info" : "danger")"></i>
+                                                <a href="@item.FilePath" target="_blank" class="">@item.Title</a>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-light text-dark border fw-normal">@item.ContentTypeName</span></td>
+                                        <td>@item.FileType</td>
+                                        <td>@item.FileSize</td>
+                                        <td>@item.UploadBy</td>
+                                        <td>@item.CreatedOn.ToString("dd-mm-yyyy")</td>
+
+                                    </tr>
+                                }
+
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyID">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyID">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyID">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyID">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyID">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

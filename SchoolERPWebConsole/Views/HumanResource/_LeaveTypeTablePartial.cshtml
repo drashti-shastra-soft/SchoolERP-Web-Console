@@ -1,0 +1,215 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.HRLeaveTypePageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="tblLeaveType">
+                        <thead>
+                            <tr class="bg-light">
+                                 <th style="width:50px" class="ps-3">Select</th>
+            <th>Leave Type Name</th>
+            <th>Display Label</th>
+            <th>Leave Code</th>
+            <th>Leave Type</th>
+            <th>From Month</th>
+            <th>To Month</th>
+            <th>Max Leave / Month</th>
+            <th>Paid</th>
+            <th style="width: 100px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Items != null)
+                            {
+                                @foreach (var item in Model.Items)
+                                {
+                                    <tr class="item-row" onclick="selectItem(@item.LeaveTypeID, this)" >
+                                        <!-- Select -->
+                                        <td class="ps-4 text-center"
+                                            style="cursor: pointer; vertical-align: middle;">
+
+                                            <div class="d-flex align-items-center justify-content-center"
+                                                 onclick="event.stopPropagation()" style="cursor: pointer;">
+
+                                                <input type="checkbox"
+                                                       name="selectedLeaveType"
+                                                       class="form-check-input student-checkbox"
+                                                       onclick="selectItem(@item.LeaveTypeID, this)"
+                                                       value="@item.LeaveTypeID">
+                                            </div>
+                                        </td>
+
+                                        <!-- Leave Type Name -->
+                                        <td>
+                                            @item.LeaveTypeName
+                                        </td>
+
+                                        <!-- Display Label -->
+                                        <td>
+                                            @(string.IsNullOrWhiteSpace(item.DisplayLabel)
+                                                ? "-"
+                                                : item.DisplayLabel)
+                                        </td>
+
+                                        <!-- Leave Code -->
+                                        <td>
+                                            @(string.IsNullOrWhiteSpace(item.LeaveCode)
+                                                ? "-"
+                                                : item.LeaveCode)
+                                        </td>
+
+                                        <!-- Leave Type -->
+                                        <td>
+                                            @(string.IsNullOrWhiteSpace(item.LeaveType)
+                                                ? "-"
+                                                : item.LeaveType)
+                                        </td>
+
+                                        <!-- From Month -->
+                                        <td>
+                                            @(item.FromMonth.HasValue
+                                                ? item.FromMonth.Value.ToString()
+                                                : "-")
+                                        </td>
+
+                                        <!-- To Month -->
+                                        <td>
+                                            @(item.ToMonth.HasValue
+                                                ? item.ToMonth.Value.ToString()
+                                                : "-")
+                                        </td>
+
+                                        <!-- Max Leave Per Month -->
+                                        <td>
+                                            @(item.MaxLeavePerMonth.HasValue
+                                                ? item.MaxLeavePerMonth.Value.ToString("0.##")
+                                                : "-")
+                                        </td>
+
+                                        <!-- Is Paid -->
+                                        <td>
+                                            @if (item.IsPaid)
+                                            {
+                                                <span class="badge bg-success">Paid</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Unpaid</span>
+                                            }
+                                        </td>
+
+                                        <!-- Status -->
+                                        <td>
+                                            <div class="form-check form-switch"
+                                                 onclick="event.stopPropagation()">
+
+                                                <input class="form-check-input"
+                                                       type="checkbox" style="cursor: pointer;"
+                                                       onchange="toggleStatus(@item.LeaveTypeID, this.checked, this)"
+                                                @(item.IsActive ? "checked" : "")
+                                                @(p.CanEdit ? "" : "disabled")>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

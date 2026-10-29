@@ -1,0 +1,283 @@
+﻿@model SchoolERPWebConsole.Domain.FeeTemplateAddViewModel
+@{
+    ViewData["Title"] = "Fee Template";
+    Layout = "_Layout"; // adjust to your shared layout
+    var p = Model.Permissions;
+    var h = Model.EditFeeTemplet?.HEADER;
+}
+
+@* =========================================================
+   Fee Template
+   Assumptions (adjust to match your actual project):
+   - Model.ClassList        -> List<MstClassViewModel>        { ClassID, ClassName }
+   - Model.StudentCategory  -> List<StudentCategoryViewModel> { CategoryID, CategoryName }
+   - Model.FeeCategory      -> List<DropdownModel>             { Value, Text }  (Rank Group)
+   - Section is loaded by AJAX, cascaded from Class:
+        GET /Academics/GetSectionsByClass/{classId} -> { success, data:[{sectionID, sectionName}] }
+   - Fee Head dropdown (for grid "Select" row) is loaded by AJAX:
+        GET /FeeTemplate/GetFeeHeadDropdown -> { success, data:[{feeHeadID, feeHeadName}] }
+   - Installment and Admission Type are STATIC dropdowns (no DB call), per requirement.
+   - Save   -> POST /FeeTemplate/Save    (FeeTemplateSaveRequest  -> FeeTemplateResponse)
+   - GetByID-> GET  /FeeTemplate/GetByID/{id} (used by Copy / reload)
+   - Delete -> POST /FeeTemplate/Delete/{id}
+   ========================================================= *@
+
+<div class="ft-wrapper">
+
+    <div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+        <div>
+            <h6 class="fw-bold mb-0">Fee Template</h6>
+        </div>
+        <div class="d-flex align-items-center flex-wrap gap-1">
+           
+            @if (p.CanAdd || p.CanEdit)
+            {
+                <button class="btn btn-success top-btn" id="btnSave">
+                    <i class="ti ti-device-floppy me-1"></i> Save
+                </button>
+                <a href="/FeeTemplate/Index" class="btn btn-secondary top-btn">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            }
+        </div>
+    </div>
+
+    <div class="ft-panel">
+        <div class="ft-panel-header">Fee Template:</div>
+
+        <!-- Header fields -->
+        <div class="ft-header-grid">
+
+            <div class="ft-field">
+                <label>Class<span class="text-danger">*</span></label>
+                <select id="ddlClass" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    @foreach (var c in Model.ClassList)
+                    {
+                        <option value="@c.ClassID" selected="@(h != null && h.CLASSID == c.ClassID)">@c.ClassName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>Section<span class="text-danger">*</span></label>
+                <select id="ddlSection" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    @if (h != null)
+                    {
+                        <option value="@h.SECTIONID" selected>@h.SECTIONNAME</option>
+                    }
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>Installment<span class="text-danger">*</span></label>
+                <select id="ddlInstallment" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    <!-- STATIC LIST: no DB call, per requirement -->
+                    <option value="4" data-name="Apr" selected="@(h != null && h.INSTALLMENTID == 4)">Apr</option>
+                    <option value="5" data-name="May" selected="@(h != null && h.INSTALLMENTID == 5)">May</option>
+                    <option value="6" data-name="Jun" selected="@(h != null && h.INSTALLMENTID == 6)">Jun</option>
+                    <option value="7" data-name="Jul" selected="@(h != null && h.INSTALLMENTID == 7)">Jul</option>
+                    <option value="8" data-name="Aug" selected="@(h != null && h.INSTALLMENTID == 8)">Aug</option>
+                    <option value="9" data-name="Sep" selected="@(h != null && h.INSTALLMENTID == 9)">Sep</option>
+                    <option value="10" data-name="Oct" selected="@(h != null && h.INSTALLMENTID == 10)">Oct</option>
+                    <option value="11" data-name="Nov" selected="@(h != null && h.INSTALLMENTID == 11)">Nov</option>
+                    <option value="12" data-name="Dec" selected="@(h != null && h.INSTALLMENTID == 12)">Dec</option>
+                    <option value="1" data-name="Jan" selected="@(h != null && h.INSTALLMENTID == 1)">Jan</option>
+                    <option value="2" data-name="Feb" selected="@(h != null && h.INSTALLMENTID == 2)">Feb</option>
+                    <option value="3" data-name="Mar" selected="@(h != null && h.INSTALLMENTID == 3)">Mar</option>
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>Admission Type<span class="text-danger">*</span></label>
+                <select id="ddlAdmissionType" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    <!-- STATIC LIST: no DB call, per requirement -->
+                    <option value="Day Scholar" selected="@(h != null && h.ADMISSIONTYPE == "Day Scholar")">Day Scholar</option>
+                    <option value="Boarder" selected="@(h != null && h.ADMISSIONTYPE == "Boarder")">Boarder</option>
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>Rank Group(Fee Category)</label>
+                <select id="ddlFeeCategory" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    @foreach (var fc in Model.FeeCategory)
+                    {
+                        <option value="@fc.Id" selected="@(h != null && h.FEECATEGORYID == fc.Id)">@fc.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>Category</label>
+                <select id="ddlCategory" class="form-control form-control-sm">
+                    <option value="">Select</option>
+                    @foreach (var sc in Model.StudentCategory)
+                    {
+                        <option value="@sc.StudentCategoryID" selected="@(h != null && h.CATEGORYID == sc.StudentCategoryID)">@sc.StudentCategoryName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="ft-field">
+                <label>No Of Months</label>
+                <input type="number" id="txtNoOfMonths" value="@h?.NOOFMONTHS" class="form-control form-control-sm" min="0" step="1"  />
+            </div>
+
+            <div class="ft-field">
+                <label>Remark</label>
+                <input type="text" id="txtRemark" value="@h?.REMARK" class="form-control form-control-sm" maxlength="255" />
+            </div>
+
+            <div class="ft-field">
+                <label>Late Fee Date</label>
+                <input type="date" id="txtLateFeeDate" value="@h?.LATEFEEDATE" class="form-control form-control-sm" />
+            </div>
+
+            <div class="ft-field">
+                <label>Late Fee Amount</label>
+                <input type="number" id="txtLateFeeAmount" value="@h?.LATEFEEAMOUNT" class="form-control form-control-sm" min="0" step="0.01" />
+            </div>
+
+            <div class="ft-field-actions">
+                <button class="btn btn-light border btn-sm" id="btnImportTemplate" type="button" disabled>Import Template</button>
+                <button class="btn btn-light border btn-sm" id="btnUpdateForAll" type="button" disabled>Update For All</button>
+            </div>
+        </div>
+
+        <!-- Fee Head grid -->
+        <table class="table ft-table" id="tblFeeHead">
+            <thead>
+                <tr>
+                    <th style="width:50px;">Edit</th>
+                    <th style="width:60px;">S.No</th>
+                    <th>Fee Head</th>
+                    <th style="width:140px;">Fee Amount</th>
+                    <th style="width:120px;">Discount %</th>
+                    <th style="width:140px;">Amount</th>
+                    <th style="width:120px;">Admission Type</th>
+                    <th style="width:80px;">Add/Delete</th>
+                </tr>
+            </thead>
+            <tbody id="tblFeeHeadBody">
+                <tr id="rowAddFeeHead">
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <select id="ddlRowFeeHead" class="form-control form-control-sm" >
+                            <option value="">Select</option>
+                        </select>
+                    </td>
+                    <td><input type="number" id="txtRowFeeAmount" class="form-control form-control-sm" min="0" step="0.01"  /></td>
+                    <td><input type="number" id="txtRowDiscount" class="form-control form-control-sm" min="0" max="100" step="0.01"  /></td>
+                    <td class="text-end" id="txtRowAmountPreview">0.00</td>
+                    <td>
+                        <select id="ddlRowAdmissionType" class="form-control form-control-sm" >
+                            <option value="B">Both</option>
+                            <option value="D">Day Scholar</option>
+                            <option value="R">Boarder</option>
+                        </select>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" id="btnRowAdd" class="btn btn-sm btn-outline-primary"  title="Add / Update Row">
+                            <i class="ti ti-plus"></i>
+                        </button>
+                    </td>
+                </tr>
+                <!-- data rows are rendered here by JS -->
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="text-end fw-bold">Total Fee :</td>
+                    <td class="text-end fw-bold" id="lblTotalFee">0.00</td>
+                    <td></td>
+                    <td class="text-end fw-bold" id="lblTotalAmount">0.00</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Hidden fields -->
+<input type="hidden" id="hdnFeeTemplateId" value="@(h?.FEETEMPLATEID ?? 0)" />
+<input type="hidden" id="hdnIsActive" value="@((h?.ISACTIVE ?? true).ToString().ToLower())" />
+
+<style>
+    .ft-panel {
+        border: 1px solid #ccd6e5;
+    }
+
+    .ft-panel-header {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .ft-header-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px 24px;
+        padding: 12px;
+        align-items: end;
+    }
+
+    .ft-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+        .ft-field label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+    .ft-field-actions {
+        display: flex;
+        gap: 8px;
+        align-items: end;
+        justify-content: flex-end;
+    }
+
+    .ft-table {
+        margin: 0;
+    }
+
+        .ft-table th, .ft-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+            .ft-table td:nth-child(3) {
+                text-align: left;
+            }
+
+        .ft-table input:disabled, .ft-table select:disabled {
+            background: #eee;
+            color: #666;
+        }
+
+    .top-btn {
+        font-weight: 600;
+    }
+</style>
+
+<script src="~/assets/js/Feetemplateadd.js"></script>
+<script>
+    // Server-rendered bootstrap data handed off to FeeTemplateAdd.js
+    window.FeeTemplateBootstrap = {
+        companyId: @(ViewBag.CompanyId ?? 0),
+        sessionId: @(ViewBag.SessionId ?? 0),
+        userId: @(ViewBag.UserId ?? 0),
+        header: @Html.Raw(h != null ? System.Text.Json.JsonSerializer.Serialize(h) : "null"),
+        details: @Html.Raw(Model.EditFeeTemplet?.DETAILS != null
+             ? System.Text.Json.JsonSerializer.Serialize(Model.EditFeeTemplet.DETAILS)
+             : "[]")
+    };
+</script>

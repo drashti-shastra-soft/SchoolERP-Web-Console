@@ -1,0 +1,183 @@
+﻿@model SchoolERPWebConsole.Domain.RemarksFeedingAddViewModel
+@{
+    ViewData["Title"] = "Promote to Class";
+    Layout = "_Layout";
+    var p = Model.Permissions;
+}
+
+<div class="pc-wrapper">
+
+    <div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+        <div></div>
+        <div class="d-flex align-items-center flex-wrap gap-1">
+            @if (p.CanEdit)
+            {
+                <button class="btn btn-warning top-btn" id="btnEdit">
+                    <i class="ti ti-edit me-1"></i> EDIT
+                </button>
+            }
+            @if (p.CanAdd || p.CanEdit)
+            {
+                <button class="btn btn-secondary top-btn" id="btnSave" disabled>
+                    <i class="ti ti-device-floppy me-1"></i> SAVE
+                </button>
+            }
+            @if (p.CanDelete)
+            {
+                <button class="btn btn-danger top-btn" id="btnDelete">
+                    <i class="ti ti-trash me-1"></i> DELETE
+                </button>
+            }
+            <button class="btn btn-dark top-btn" id="btnReset">
+                <i class="ti ti-refresh me-1"></i> RESET
+            </button>
+        </div>
+    </div>
+
+    <div class="pc-panel">
+        <div class="pc-panel-header">Promote to Class</div>
+
+        <!-- Filters -->
+        <div class="pc-filters">
+            <div class="pc-filter">
+                <label>Class:<span class="text-danger">*</span></label>
+                <select id="ddlClass" class="form-control form-control-sm" onchange="onClassChange()">
+                    <option value="">-- Select --</option>
+                    @foreach (var c in Model.Class)
+                    {
+                        <option value="@c.ClassID">@c.ClassName</option>
+                    }
+                </select>
+            </div>
+            <div class="pc-filter">
+                <label>Section:<span class="text-danger">*</span></label>
+                <select id="ddlSection" class="form-control form-control-sm" onchange="onSectionChange()">
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+            <div class="pc-filter">
+                <label>Target Session:<span class="text-danger">*</span></label>
+                <select id="ddlTargetSession" class="form-control form-control-sm" onchange="onTargetSessionChange()">
+                    <option value="">-- Select --</option>
+                    @* Populate from Model.Sessions if available *@
+                </select>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="pc-grid-scroll">
+            <table class="table pc-table" id="tblPromotedClass">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"><input type="checkbox" id="chkSelectAll" /></th>
+                        <th style="width:70px;">Roll No.</th>
+                        <th style="width:110px;">Student ID</th>
+                        <th>Father Name</th>
+                        <th>Student Name</th>
+                        <th>Promoted To Class</th>
+                        <th>Promoted To Section</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody id="tblBody">
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">
+                            Select Class, Section and Target Session to load students.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pc-footer">
+            T.ST. : <span id="totalStudents">0</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pc-panel {
+        border: 1px solid #ccd6e5;
+    }
+
+    .pc-panel-header {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .pc-filters {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        padding: 12px;
+    }
+
+    .pc-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .pc-filter label {
+            margin: 0;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .pc-filter select {
+            min-width: 150px;
+        }
+
+    .pc-grid-scroll {
+        max-height: 480px;
+        overflow-y: auto;
+    }
+
+    .pc-table {
+        margin: 0;
+    }
+
+        .pc-table th, .pc-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+            .pc-table td:nth-child(4),
+            .pc-table td:nth-child(5) {
+                text-align: left;
+            }
+
+            .pc-table td:nth-child(5) {
+                font-weight: 600;
+            }
+
+        .pc-table select.promoteSelect {
+            width: 100%;
+            min-width: 140px;
+            text-align: left;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 4px 6px;
+        }
+
+        .pc-table select:disabled {
+            background: #eee;
+            color: #666;
+        }
+
+        .pc-table input:disabled {
+            background: #eee;
+            color: #666;
+        }
+
+    .pc-footer {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 8px 12px;
+        font-weight: 700;
+    }
+</style>
+
+<script src="~/assets/js/PromotedClass.js"></script>

@@ -1,0 +1,255 @@
+﻿
+@using SchoolERPWebConsole.Services
+@using System.Security.Claims
+@inject ILocalizationService Localizer;
+@{
+    ViewData["Title"] = Localizer.GetString("dashboard");
+}
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Teacher Dashboard @User.Identity.Name</h6>
+    </div>
+    <!-- <div class="d-flex align-items-center flex-wrap gap-2">
+        <a href="new-appointment.html" class="btn btn-primary d-inline-flex align-items-center"><i class="ti ti-plus me-1"></i>New Appointment</a>
+        <a href="doctor-schedule.html" class="btn btn-outline-white bg-white d-inline-flex align-items-center"><i class="ti ti-calendar-time me-1"></i>Schedule Availability</a>
+    </div> -->
+</div>
+<!-- End Page Header -->
+
+<div class="alert alert-info alert-dismissible fade show mb-2 border" role="alert">
+    <a href="notice-board.html" class="text-primary">Study Parents</a>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<!-- start row -->
+<div class="row">
+    <div class="col-xl-3 col-md-6">
+        <div class="position-relative border card rounded-2 overflow-hidden shadow-sm mb-2">
+            <img src="~/assets/img/bg/bg-04.svg" alt="img" class="position-absolute start-0 top-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2 justify-content-between mb-3">
+                    <span class="avatar bg-success rounded-circle">
+                        <i class="ti ti-calendar-week fs-24"></i>
+                    </span>
+                    <!-- <div class="text-end">
+                        <span class="badge px-2 py-1 fs-12 fw-medium d-inline-flex mb-1 bg-success">+95%</span>
+                        <p class="fs-13 mb-0">in last 7 Days </p>
+                    </div> -->
+                    <p class="mb-1">0/28</p>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <!-- <p class="mb-1">0/0</p> -->
+                        <h6 class="fs-14 mb-0">Student Present Today</h6>
+                    </div>
+                    <!-- <div>
+                        <div id="s-col" class="chart-set"></div>
+                    </div> -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- end col -->
+</div>
+<!-- end row -->
+<!-- start row -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-header">
+                <h6 class="mb-0 small fs-14">Student Today Attendance</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <p class="mb-1">Present</p>
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p class="mb-1">Late</p>
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p class="mb-1">Absent</p>
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <p class="mb-1">Half Day</p>
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+<!-- start row -->
+<div class="row">
+    <div class="col-xl-3 d-flex">
+        <div class="card shadow-tbl-outer mb-2 flex-fill w-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Students</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">28</h5>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0">
+                        <i class="ti ti-users fs-20"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- <div class="col-xl-3 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Admin</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">658</h5>
+                            <span class="badge fw-medium bg-success flex-shrink-0">+95%</span>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-coin-rupee fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+    </div> -->
+</div>
+<!-- end row -->
+<!-- start row -->
+<div class="row">
+    <div class="col-xl-9">
+        <div class="card shadow-tbl-outer">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0 text-truncate">
+                    April 2026
+                </h5>
+                <!-- <select name="" id="" class="form-select w-auto">
+                    <option value="">Month</option>
+                    <option value="">Week</option>
+                    <option value="">Day</option>
+                </select> -->
+                <div class="dropdown">
+                    <a href="javascript:void(0);" class="btn btn-sm px-2 border shadow-sm btn-outline-white d-inline-flex align-items-center" data-bs-toggle="dropdown">
+                        All Type <i class="ti ti-chevron-down ms-1"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="javascript:void(0);">Month</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="javascript:void(0);">Week</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="javascript:void(0);">Day</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="datepic mb-1"></div>
+                <!-- <div class="datepic mb-1"></div>
+                <div class="mb-3 bg-light p-3 rounded-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fs-14 fw-semibold mb-1">General Visit</h6>
+                        <p class="mb-0 text-body text-truncate"><i class="ti ti-calendar-time me-1 text-body"></i> Wed, 05 Apr 2025, 06:30 PM </p>
+                    </div>
+                    <div class="avatar-list-stacked avatar-group-sm event flex-shrink-0">
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/profiles/avatar-26.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/doctors/doctor-05.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                    </div>
+                </div>
+                <div class="mb-3 bg-soft-danger p-3 rounded-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fs-14 fw-semibold mb-1">General Visit</h6>
+                        <p class="mb-0 text-truncate"><i class="ti ti-calendar-time me-1 text-dark"></i> Wed, 05 Apr 2025, 04:10 PM </p>
+                    </div>
+                    <div class="avatar-list-stacked avatar-group-sm event flex-shrink-0">
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/users/user-17.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/doctors/doctor-10.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                    </div>
+                </div>
+                <div class="mb-3 bg-soft-info p-3 rounded-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fs-14 fw-semibold mb-1">General Visit</h6>
+                        <p class="mb-0 text-truncate"><i class="ti ti-calendar-time me-1 text-dark"></i> Wed, 05 Apr 2025, 10:00 AM </p>
+                    </div>
+                    <div class="avatar-list-stacked avatar-group-sm event flex-shrink-0">
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/users/user-16.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                        <span class="avatar avatar-lg rounded-circle border-0"><img src="assets/img/doctors/doctor-09.jpg" class="img-fluid rounded-circle border border-white" alt="Img"></span>
+                    </div>
+                </div> -->
+                <!-- <a href="appointments.html" class="btn btn-light w-100">View All Appointments</a> -->
+            </div>
+        </div>
+    </div>
+
+    <!-- <div class="col-xl-3">
+        <div class="card shadow-sm flex-fill w-100 mb-2">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Admin</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">03</h5>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-user fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm flex-fill w-100 mb-2">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Teacher</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">03</h5>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-user fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm flex-fill w-100 mb-2">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Accountant</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">03</h5>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-user fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm flex-fill w-100 mb-2">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Librarian</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">03</h5>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-user fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+    </div> -->
+</div>
+<!-- end row -->

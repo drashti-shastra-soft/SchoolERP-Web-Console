@@ -1,0 +1,117 @@
+﻿@model SchoolERPWebConsole.Domain.AddVideoTutorialViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Video Tutorial Details";
+    string GetEmbedUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return string.Empty;
+
+        string videoId = null;
+
+        // Handles: https://www.youtube.com/watch?v=VIDEOID
+        if (url.Contains("watch?v="))
+        {
+            var uri = new Uri(url);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            videoId = query["v"];
+        }
+        // Handles: https://youtu.be/VIDEOID
+        else if (url.Contains("youtu.be/"))
+        {
+            videoId = url.Split("youtu.be/")[1].Split('?')[0].Split('&')[0];
+        }
+        // Already an embed URL
+        else if (url.Contains("youtube.com/embed/"))
+        {
+            return url;
+        }
+
+        return string.IsNullOrEmpty(videoId)
+            ? string.Empty
+            : $"https://www.youtube.com/embed/{videoId}";
+    }
+}
+
+<!-- Page Header -->
+<div class="row">
+    <div class="col-xl-12">
+        <div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+            <div>
+                <h6 class="fw-bold mb-0">Video Tutorial Details</h6>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+                <a href="/DownloadCenter/VideoTutorial" class="btn btn-secondary top-btn">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- Details Card -->
+    <div class="col-md-6 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <b>Video Tutorial Details</b>
+                </li>
+                @if (Model != null)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Title :</span>
+                        <span>@Model.EditItems?.Title</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Description :</span>
+                        <span>@Model.EditItems?.Description</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Created Date :</span>
+                        <span>@Model.EditItems?.CreatedOn.ToString("dd-mm-yyyy")</span>
+                    </li>                    
+                }
+                else
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">To Title :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">From Title :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Address :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Note :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Reference No :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Date :</span> -</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <!-- Attachment Preview Card -->
+    <div class="col-md-6 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush h-100">
+                <li class="list-group-item d-flex justify-content-between align-items-center">                    
+                    @{
+                        var embedUrl = GetEmbedUrl(Model.EditItems?.VideoLink);
+                    }
+
+                    @if (!string.IsNullOrEmpty(embedUrl))
+                    {
+                        <iframe width="560"
+                                height="315"
+                                src="@embedUrl"
+                                title="YouTube video player"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen>
+                        </iframe>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">No valid video link provided.</div>
+                    }
+                </li>                
+            </ul>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,395 @@
+﻿@model SchoolERPWebConsole.Domain.PaperMarksDetailsAddViewModel
+@{
+    ViewData["Title"] = "Paper Marks Details";
+    Layout = "_Layout"; // adjust to your shared layout
+    var p = Model.Permissions;
+}
+
+@* =========================================================
+   Paper Marks Details (I-V)
+   Assumptions (adjust to match your actual project):
+   - Subjects for the selected Class/Section/Exam are fetched
+     from an endpoint: GET /PaperMarksDetails/GetSubjects?classId=&sectionId=&examId=
+     returning: [{ subjectId, subjectName, theoryMaxMark, theoryMinMark,
+                   practicalMaxMark, practicalMinMark }]
+   - Save posts to: POST /PaperMarksDetails/SavePaperMarksDetails
+     with the PaperMarksDetailsSaveRequest shape from the controller.
+   - Bootstrap (3/4/5-compatible classes used loosely) + jQuery are
+     already referenced in the shared _Layout, matching the rest
+     of the admin panel tabs shown in the screenshot.
+   ========================================================= *@
+
+<div class="pmd-wrapper">
+
+    <div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+        <div>
+            <h6 class="fw-bold mb-0">Paper Marks Details</h6>
+        </div>
+        <div class="d-flex align-items-center flex-wrap gap-1">
+            @if (p.CanAdd)
+            {
+                <button class="btn btn-success top-btn" id="btnSave">
+                    <i class="ti ti-device-floppy me-1"></i> Save
+                </button>
+            }
+            @if (p.CanDelete)
+            {
+                <button class="btn btn-danger top-btn" id="btnDelete">
+                    <i class="ti ti-device-floppy me-1"></i> DELETE
+                </button>
+            }
+            @if (p.CanDelete)
+            {
+                <button class="btn btn-primary top-btn" id="btnCopy">
+                    <i class="ti ti-device-floppy me-1"></i> Copy
+                </button>
+            }
+        </div>
+    </div>
+
+    
+
+    <div class="pmd-panel">
+        <div class="pmd-panel-header">Paper Marks Details (I-V)</div>
+
+        <!-- Filters -->
+        <div class="pmd-filters">
+            <div class="pmd-filter">
+                <label>Class:<span class="text-danger">*</span></label>
+                <select id="ddlClass" class="form-control form-control-sm" onchange="onClassChange()">
+                    <option value="">-- Select --</option>
+                    @foreach (var c in Model.Class)
+                    {
+                        <option value="@c.ClassID">@c.ClassName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="pmd-filter">
+                <label>Section:<span class="text-danger">*</span></label>
+                <select id="ddlSection" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    @foreach (var s in Model.Section)
+                    {
+                        <option value="@s.SectionID">@s.SectionName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="pmd-filter">
+                <label>Exam:<span class="text-danger">*</span></label>
+                <select id="ddlExam" class="form-control form-control-sm" onchange="loadSubjects()">
+                    <option value="">-- Select --</option>                    
+                </select>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <table class="table pmd-table" id="tblPaperMarks">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width:36px;"><input type="checkbox" id="chkSelectAll" /></th>
+                    <th rowspan="2">S.No</th>
+                    <th rowspan="2">Subject Name</th>
+                    <th colspan="2">Theory</th>
+                    <th colspan="2">Practical</th>
+                    <th colspan="2">Total</th>
+                </tr>
+                <tr>
+                    <th>Max Mark</th>
+                    <th>Min Mark</th>
+                    <th>Max Mark</th>
+                    <th>Min Mark</th>
+                    <th>Max Mark</th>
+                    <th>Min Mark</th>
+                </tr>
+            </thead>
+            <tbody id="tblBody">
+                <tr>
+                    <td colspan="8" class="text-center text-muted">
+                        Select Class, Section and Exam to load subjects.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+@* ===================== Copy Paper Marks Details modal ===================== *@
+<div class="copy-modal-overlay" id="copyModalOverlay" style="display:none;">
+    <div class="copy-modal">
+        <div class="copy-modal-titlebar">
+            <div class="copy-modal-title">
+                <i class="ti ti-file-text me-1"></i> Copy Paper Marks Details
+            </div>
+            <div class="copy-modal-title-actions">
+                <button type="button" class="btn-close-icon" id="btnCopyClose" title="Close">&times;</button>
+            </div>
+        </div>
+
+        <div class="copy-modal-savebar">
+            <button type="button" class="btn btn-success btn-sm fw-bold" id="btnCopySave">SAVE</button>
+        </div>
+
+        <div class="copy-modal-body">
+            <div class="pmd-panel-header">Paper Marks Details</div>
+
+            <div class="copy-columns">
+                <fieldset class="copy-fieldset">
+                    <legend>Copy From</legend>
+
+                    <div class="copy-field">
+                        <label>Session :<span class="text-danger">*</span></label>
+                        <select id="copyFromSession" class="form-control form-control-sm">
+                            <option value="">Select</option>
+                        </select>
+                    </div>
+
+                    <div class="copy-field">
+                        <label>Class :<span class="text-danger">*</span></label>
+                        <select id="copyFromClass" class="form-control form-control-sm">
+                            <option value="">Select</option>
+                        </select>
+                    </div>
+
+                    <div class="copy-field">
+                        <label>Section:<span class="text-danger">*</span></label>
+                        <select id="copyFromSection" class="form-control form-control-sm" disabled>
+                            <option value="">Select an Option</option>
+                        </select>
+                    </div>
+
+                    <div class="copy-field">
+                        <label>Exam:<span class="text-danger">*</span></label>
+                        <select id="copyFromExam" class="form-control form-control-sm" disabled>
+                            <option value="">Select an Option</option>
+                        </select>
+                    </div>
+                </fieldset>
+
+                <fieldset class="copy-fieldset">
+                    <legend>Copy To</legend>
+
+                    <div class="copy-field">
+                        <label>Class :<span class="text-danger">*</span></label>
+                        <select id="copyToClass" class="form-control form-control-sm">
+                            <option value="">Select a Class...</option>
+                        </select>
+                    </div>
+
+                    <div class="copy-field">
+                        <label>Section:</label>
+                        <select id="copyToSection" class="form-control form-control-sm" disabled>
+                            <option value="">Select a Section...</option>
+                        </select>
+                    </div>
+
+                    <div class="copy-field">
+                        <label>Exam:</label>
+                        <select id="copyToExam" class="form-control form-control-sm" disabled>
+                            <option value="">Select a Exam...</option>
+                        </select>
+                    </div>
+                </fieldset>
+            </div>
+
+            <table class="table copy-preview-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Subject Name<span class="text-danger">*</span></th>
+                        <th style="width:120px;">Max Marks</th>
+                        <th style="width:120px;">Min Marks</th>
+                    </tr>
+                </thead>
+                <tbody id="copyPreviewBody">
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            Select Copy From Class, Section and Exam to preview subjects.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+
+<style>
+    .pmd-toolbar .pmd-btn {
+        margin-right: 6px;
+        font-weight: 600;
+    }
+
+    .pmd-panel {
+        border: 1px solid #ccd6e5;
+    }
+
+    .pmd-panel-header {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .pmd-filters {
+        display: flex;
+        gap: 24px;
+        padding: 12px;
+        flex-wrap: wrap;
+    }
+
+    .pmd-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .pmd-filter label {
+            margin: 0;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .pmd-filter select {
+            min-width: 150px;
+        }
+
+    .pmd-table {
+        margin: 0;
+    }
+
+        .pmd-table th, .pmd-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+            .pmd-table td:nth-child(2) {
+                text-align: left;
+                color: #2b4a8b;
+                font-weight: 600;
+            }
+
+        .pmd-table input[type="number"] {
+            width: 80px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+
+        .pmd-table input:disabled {
+            background: #eee;
+            color: #666;
+        }
+
+    /* ---------- Copy modal ---------- */
+    .copy-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+
+    .copy-modal {
+        background: #fff;
+        width: 760px;
+        max-width: 95vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+        overflow: hidden;
+    }
+
+    .copy-modal-titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid #ddd;
+        font-weight: 600;
+    }
+
+    .copy-modal-title {
+        color: #2b4a8b;
+    }
+
+    .btn-close-icon {
+        background: none;
+        border: none;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        color: #555;
+    }
+
+    .copy-modal-savebar {
+        padding: 8px 12px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .copy-modal-body {
+        padding: 12px;
+        overflow-y: auto;
+    }
+
+    .copy-columns {
+        display: flex;
+        gap: 16px;
+        margin: 12px 0;
+        flex-wrap: wrap;
+    }
+
+    .copy-fieldset {
+        flex: 1 1 300px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 10px 12px;
+    }
+
+        .copy-fieldset legend {
+            width: auto;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0 6px;
+            margin: 0;
+        }
+
+    .copy-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+        .copy-field label {
+            width: 70px;
+            flex-shrink: 0;
+            font-weight: 600;
+            margin: 0;
+        }
+
+    .copy-preview-table {
+        margin-top: 4px;
+    }
+
+        .copy-preview-table th {
+            background: #eef1f7;
+        }
+
+        .copy-preview-table th, .copy-preview-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+            .copy-preview-table td:nth-child(2) {
+                text-align: left;
+            }
+</style>
+
+<script src="~/assets/js/PaperMarksDetails.js">
+    
+</script>

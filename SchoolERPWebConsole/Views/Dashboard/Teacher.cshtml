@@ -1,0 +1,141 @@
+﻿@using SchoolERPWebConsole.Services
+@using System.Security.Claims
+@inject ILocalizationService Localizer
+@{
+    ViewData["Title"] = "Teacher Dashboard";
+    var userPhoto = User.FindFirst("StudentPhoto")?.Value;
+    var userTypeName = User.FindFirst("UserTypeName")?.Value;
+}
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <h6 class="fw-bold mb-0">Teacher Dashboard</h6>
+</div>
+
+<div class="row">
+    <!-- Welcome Card -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                    <img src="@(string.IsNullOrEmpty(userPhoto) ? Url.Content("~/assets/img/users/user-01.jpg") : Url.Content(userPhoto))"
+                         width="32" class="rounded-circle me-2" alt="user-image">
+                    <b class="text-dark">Welcome, @User.Identity.Name</b>
+                </div>
+                <span class="badge bg-teal rounded-pill p-2 px-3">@userTypeName</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Timetable -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">Today's Timetable</h6>
+                <span class="badge bg-primary fs-11" id="timetable-count">0</span>
+            </div>
+            <div class="card-body p-0" id="timetable-container" style="max-height:250px;overflow-y:auto;">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+                        <div class="flex-grow-1">
+                            <span class="placeholder col-5 d-block mb-1 rounded"></span>
+                            <span class="placeholder col-3 rounded"></span>
+                        </div>
+                        <span class="placeholder rounded" style="width:80px;display:block;"></span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Summary -->
+    <div class="col-md-6">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">Attendance Summary</h6>
+                <span class="badge bg-primary fs-11" id="attendance-count">0</span>
+            </div>
+            <div class="card-body p-0" id="attendance-container" style="max-height:300px;overflow-y:auto;">
+                @for (int i = 0; i < 2; i++)
+                {
+                    <div class="p-3 border-bottom">
+                        <span class="placeholder col-5 d-block mb-2 rounded"></span>
+                        <div class="progress rounded-pill placeholder-glow" style="height:8px;">
+                            <div class="progress-bar placeholder w-75"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- My Students -->
+    <div class="col-md-6">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">My Students</h6>
+                <span class="badge bg-primary fs-11" id="students-count">0</span>
+            </div>
+            <div class="card-body p-0" id="students-container" style="max-height:300px;overflow-y:auto;">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+                        <span class="placeholder rounded-circle" style="width:36px;height:36px;display:block;"></span>
+                        <div class="flex-grow-1">
+                            <span class="placeholder col-6 d-block mb-1 rounded"></span>
+                            <span class="placeholder col-3 rounded"></span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Homework Submissions -->
+    <div class="col-md-6">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">Homework Submissions</h6>
+                <span class="badge bg-primary fs-11" id="hw-sub-count">0</span>
+            </div>
+            <div class="card-body p-0" id="hw-sub-container" style="max-height:300px;overflow-y:auto;">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+                        <span class="placeholder rounded-circle" style="width:36px;height:36px;display:block;"></span>
+                        <div class="flex-grow-1">
+                            <span class="placeholder col-6 d-block mb-1 rounded"></span>
+                            <span class="placeholder col-3 rounded"></span>
+                        </div>
+                        <span class="placeholder rounded" style="width:60px;display:block;"></span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- My Homework -->
+    <div class="col-md-6">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">My Homework</h6>
+                <span class="badge bg-primary fs-11" id="hw-count">0</span>
+            </div>
+            <div class="card-body p-0" id="hw-container" style="max-height:300px;overflow-y:auto;">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+                        <div class="flex-grow-1">
+                            <span class="placeholder col-6 d-block mb-1 rounded"></span>
+                            <span class="placeholder col-3 rounded"></span>
+                        </div>
+                        <span class="placeholder rounded" style="width:60px;display:block;"></span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="@Url.Content("~/assets/js/jquery-3.7.1.min.js")"></script>
+<script src="@Url.Content("~/assets/js/teacherDashboard.js")"></script>

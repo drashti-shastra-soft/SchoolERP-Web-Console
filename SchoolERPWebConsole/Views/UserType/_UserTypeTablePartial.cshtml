@@ -1,0 +1,116 @@
+﻿@model SchoolERPWebConsole.Domain.MstUserTypePageViewModel
+@using SchoolERPWebConsole.Helpers
+@inject PermissionHelper PermHelper
+@{
+    var canEdit = PermHelper.HasPermissionByUrl("/UserType", "Edit");
+    int totalPages = Model.PageSize > 0
+        ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+        : 0;
+    var searchQs = Uri.EscapeDataString(Model.SearchTerm ?? "");
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <table class="table align-middle" id="typesTable">
+                    <colgroup>
+                        <col style="width: 60px;">
+                        <col style="width: 25%;">
+                        <col style="width: 30%;">
+                        <col style="width: 15%;">
+                        <col style="width: 20%;">
+                    </colgroup>
+                    <thead>
+                        <tr class="bg-light">
+                            <th class="ps-4 text-center">Select</th>
+                            <th>Type Code</th>
+                            <th>Display Name</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Created On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @* No colspan "no records" row here: DataTables shows its own emptyTable text,
+                           and a colspan row triggers the "Incorrect column count" warning. *@
+                        @if (Model.UserTypes != null)
+                        {
+                            @foreach (var t in Model.UserTypes)
+                            {
+                                <tr class="item-row" style="cursor: pointer;">
+                                    <td class="ps-4 text-center">
+                                        <input type="checkbox" name="selectedUserType"
+                                               class="form-check-input usertype-checkbox m-0"
+                                               value="@t.UserTypeID">
+                                    </td>
+                                    <td>@t.TypeCode</td>
+                                    <td>@t.TypeName</td>
+                                    <td class="text-center status-cell">
+                                        @if (canEdit)
+                                        {
+                                            <div class="form-check form-switch d-inline-block m-0">
+                                                <input class="form-check-input usertype-status-switch" type="checkbox"
+                                                @(t.IsActive ? "checked" : "")
+                                                       onchange="toggleStatus(@t.UserTypeID, this.checked, this)">
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge @(t.IsActive ? "bg-success" : "bg-secondary")">
+                                                @(t.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-center"><span class="text-xs">@t.CreatedOn.ToString("dd MMM yyyy")</span></td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                @if (totalPages > 1)
+                {
+                    <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+                        <div class="text-muted small">
+                            Showing
+                            <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                            –
+                            <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                            of
+                            <strong>@Model.TotalRecords</strong> user types
+                        </div>
+
+                        <nav aria-label="User type pagination">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link" href="?pageIndex=1&pageSize=@Model.PageSize&search=@searchQs"><i class="ti ti-chevrons-left"></i></a>
+                                </li>
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link" href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@searchQs"><i class="ti ti-chevron-left"></i></a>
+                                </li>
+                                @{
+                                    int start = Math.Max(1, Model.PageNumber - 2);
+                                    int end = Math.Min(totalPages, start + 4);
+                                    start = Math.Max(1, end - 4);
+                                }
+                                @for (int pg = start; pg <= end; pg++)
+                                {
+                                    <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                        <a class="page-link" href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@searchQs">@pg</a>
+                                    </li>
+                                }
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link" href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@searchQs"><i class="ti ti-chevron-right"></i></a>
+                                </li>
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link" href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@searchQs"><i class="ti ti-chevrons-right"></i></a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

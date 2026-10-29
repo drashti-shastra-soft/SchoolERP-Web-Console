@@ -1,0 +1,304 @@
+﻿/* ============================================================
+   STICKY LIST PAGE HELPERS — shared across all list pages.
+
+   .sticky-toolbar → button bar, sticks at the very top of the page
+   .sticky-table   → outer wrapper div (border/radius/clip only).
+                     .table-responsive → its child div; THIS is the
+                     actual fixed-height scroll box (both horizontal
+                     and vertical), and thead sticks to top:0 of it.
+                     Markup must be real nesting:
+                       <div class="sticky-table">
+                         <div class="table-responsive">
+                           <table>...</table>
+                         </div>
+                       </div>
+                     Fully self-contained: does not depend on toolbar
+                     height, page scroll, or any outer layout ancestor.
+   ============================================================ */
+
+/* ---------- Toolbar ---------- */
+.sticky-header {
+    position: sticky;
+    top: 0; /* required, even if 0 */
+    z-index: 10;
+}
+
+.sticky-toolbar {
+    position: static;
+    top: 0;
+    z-index: 1055;
+    overflow: visible !important;
+}
+
+.responsive-btn-group {
+    overflow: visible !important;
+    position: relative;
+    z-index: 6001;
+}
+
+    .responsive-btn-group .top-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        font-weight: 500;
+    }
+
+@media (max-width: 575.98px) {
+    .responsive-btn-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+        .responsive-btn-group .top-btn,
+        .responsive-btn-group .dropdown,
+        .responsive-btn-group .dropdown .dropdown-toggle {
+            width: 100%;
+        }
+}
+
+/* From tablet width up, keep the title and the button group on the
+   same row instead of letting flex-wrap drop the buttons to a new
+   line. If the buttons still don't all fit, they scroll horizontally
+   rather than wrapping — title stays put on the left. */
+@media (min-width: 576px) {
+    .sticky-toolbar {
+        flex-wrap: nowrap;
+    }
+
+        .sticky-toolbar > div:first-child {
+            flex-shrink: 0;
+            white-space: nowrap;
+            margin-right: 1rem;
+        }
+
+    .responsive-btn-group {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        justify-content: flex-end;
+        scrollbar-width: thin;
+        scrollbar-color: #ced4da transparent;
+        z-index: 5;
+    }
+
+        .responsive-btn-group::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .responsive-btn-group::-webkit-scrollbar-thumb {
+            background: #ced4da;
+            border-radius: 4px;
+        }
+
+        .responsive-btn-group .top-btn,
+        .responsive-btn-group .dropdown {
+            flex-shrink: 0; /* buttons keep their size, scroll instead of squeezing */
+        }
+}
+
+/* ---------- Table card ---------- */
+.sticky-table {
+    max-height: 100%; /* let JS drive the real number */
+    overflow-y: visible;
+    position: relative;
+    z-index: 1;
+}
+
+    .sticky-table .table-responsive {
+        max-height: 62vh; /* fallback if no JS sizing is used */
+        overflow-y: auto;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS/Android */
+        position: relative;
+        background: linear-gradient(to right, #fff 30%, rgba(255,255,255,0)), linear-gradient(to right, rgba(255,255,255,0), #fff 70%) 100% 0, linear-gradient(to right, rgba(0,0,0,0.08), rgba(0,0,0,0)), linear-gradient(to left, rgba(0,0,0,0.08), rgba(0,0,0,0)) 100% 0;
+        background-repeat: no-repeat;
+        background-size: 40px 100%, 40px 100%, 12px 100%, 12px 100%;
+        background-attachment: local, local, scroll, scroll;
+        /* ^ subtle shadow fades on left/right edges appear only when there's
+       more content to scroll to horizontally — a visible hint that the
+       table scrolls sideways, since the scrollbar itself can be invisible
+       on mobile until actively touched. */
+    }
+
+    .sticky-table table {
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+        .sticky-table table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background-color: #fff; /* must be opaque or rows will show through */
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08); /* thin bottom border that stays visible while scrolling */
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #495057;
+            /*padding: 0.9rem 1rem;*/
+            box-shadow: inset 0 -1px 0 #dee2e6;
+            white-space: nowrap;
+        }
+
+        .sticky-table table tbody td {
+            padding: 0.85rem 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f3f5;
+        }
+
+        .sticky-table table tbody tr:hover {
+            background: #f8f9fb;
+        }
+
+        .sticky-table table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Sticky first column (checkbox) stays above horizontally-scrolled content.
+   NOTE: explicit background colors here, NOT "inherit" — inherited
+   backgrounds on position:sticky table cells are known to repaint
+   incorrectly during scroll in Chrome/WebKit, causing rows near the
+   sticky boundary to render blank/garbled. Explicit colors avoid it. */
+        .sticky-table table thead th:first-child,
+        .sticky-table table tbody td:first-child {
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 1005;
+        }
+
+        .sticky-table table thead th:first-child {
+            z-index: 1011;
+            background: #f8f9fa;
+        }
+
+        .sticky-table table tbody tr:hover td:first-child {
+            background: #f8f9fb;
+        }
+
+        /* Same reasoning: give every body cell an explicit opaque background so
+   the sticky thead row never blends with / half-shows a scrolling row
+   behind it during the scroll repaint. */
+        .sticky-table table tbody td {
+            background: #fff;
+        }
+
+        .sticky-table table tbody tr:hover td {
+            background: #f8f9fb;
+        }
+
+    /* Scrollbar styling (WebKit) */
+    .sticky-table .table-responsive::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .sticky-table .table-responsive::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .sticky-table .table-responsive::-webkit-scrollbar-thumb {
+        background: #ced4da;
+        border-radius: 4px;
+    }
+
+        .sticky-table .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #adb5bd;
+        }
+    /* Firefox */
+    .sticky-table .table-responsive {
+        scrollbar-width: thin;
+        scrollbar-color: #ced4da transparent;
+    }
+
+    /* Status toggle switch, tidy alignment */
+    .sticky-table .form-switch .form-check-input {
+        width: 2.5em;
+        height: 1.3em;
+        cursor: pointer;
+    }
+    /* DataTables wraps your table in .dataTables_wrapper and adds its own
+   toolbar (Bfrtip). Make sure that wrapper doesn't clip the sticky header. */
+    .sticky-table .dataTables_wrapper {
+        overflow: visible;
+    }
+
+/* ---------- Filter dropdown header (Select Criteria / Reset / Apply) ---------- */
+
+
+.filter-header #btnResetFilters {
+    border: 1px solid #dee2e6;
+    color: #495057;
+    padding: 0.4rem 0.9rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+}
+
+
+
+.filter-header #btnApplyFilters {
+    border-radius: 0.5rem;
+    border: 1px solid #0d6efd;
+    display: inline-flex;
+    align-items: center;
+}
+
+.sticky-footer-toolbar {
+    position: fixed;
+    left: 260px; /* match your sidebar width */
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    background: #fff;
+    padding: 10px 24px;
+    border-top: 1px solid #e9ecef;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+}
+
+/* Collapsed sidebar state, if your theme supports it */
+.app-sidebar-collapsed .sticky-footer-toolbar {
+    left: 70px;
+}
+
+@media (max-width: 768px) {
+    .sticky-footer-toolbar {
+        left: 0; /* sidebar usually becomes an overlay/hidden on mobile */
+    }
+}
+
+.responsive-btn-group .dropdown {
+    position: static;
+}
+
+.responsive-btn-group .dropdown-menu {
+    z-index: 7000 !important;
+    position: absolute;
+}
+
+.sticky-table {
+    z-index: 1;
+    position: relative;
+}
+
+.filter-header {
+    z-index: 2;
+    position: relative;
+}
+
+.sticky-toolbar,
+.responsive-btn-group,
+.sticky-toolbar .dropdown {
+    overflow: visible !important;
+}
+
+/*.sticky-table .table-responsive {*/
+    /*max-height: 345px;*/ /* was 62vh fallback */
+/*}*/
+@media (max-width: 575.98px) {
+    .sticky-table .table-responsive {
+        max-height: 280px; /* mobile override */
+    }
+}

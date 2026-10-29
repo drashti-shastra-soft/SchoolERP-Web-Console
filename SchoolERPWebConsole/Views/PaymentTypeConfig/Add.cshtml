@@ -1,0 +1,161 @@
+﻿@model SchoolERPWebConsole.Domain.PaymentTypeConfigAddViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Payment Methods";
+    var p = Model.Permissions;
+    var paymentTypes = Model.PaymentType?.ToList() ?? new List<PaymentTypeModel>();
+}
+<style>
+    .gateway-tabs {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .gateway-tab-link {
+        color: #495057;
+        padding: 6px 12px;
+        border-bottom: 2px solid transparent;
+        font-size: 0.9rem;
+    }
+
+        .gateway-tab-link.active {
+            color: #d97706;
+            border-bottom-color: #d97706;
+            font-weight: 600;
+        }
+
+    /* Right-side "Select SMS Gateway" panel — sit BELOW the app header,
+               never over it. Adjust --app-header-height to your actual header's
+               real height if it differs (check the header's rendered height in
+               devtools if unsure). */
+    :root {
+        --app-header-height: 60px;
+    }
+
+    #defaultGatewayPanel {
+        top: var(--app-header-height) !important;
+        height: calc(100% - var(--app-header-height)) !important;
+        z-index: 1020; /* below the header's own z-index, above page content */
+    }
+</style>
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <h6 class="fw-bold mb-0">Payment Methods</h6>
+    <a href="/PaymentType/Index" class="btn btn-secondary top-btn"><i class="ti ti-arrow-left me-1"></i> Back</a>
+</div>
+
+<div class="col-md-8 card shadow-tbl-outer mb-3">
+    <div class="card-header bg-white py-2 border-bottom">
+        <!-- Pill tabs — one per payment gateway -->
+        @* <ul class="nav nav-pills gateway-tabs" id="gatewayTabs">
+            @foreach (var pt in Model.PaymentType)
+            {
+                var isActiveGateway = Model.ActivePaymentTypeId == pt.PaymentTypeId;
+                <li class="nav-item">
+                    <a class="nav-link gateway-tab-link @(isActiveGateway ? "active" : "")" href="#" data-id="@pt.PaymentTypeId" onclick="selectGatewayTab(@pt.PaymentTypeId); return false;">
+                        @pt.PaymentType
+                    </a>
+                </li>
+            }
+        </ul> *@
+
+        <ul class="nav nav-pills gateway-tabs" id="gatewayTabs">
+            @if (paymentTypes.Any())
+            {
+                @foreach (var pt in paymentTypes)
+                {
+                    var isActiveGateway = Model.ActivePaymentTypeId == pt.PaymentTypeId;
+                    <li class="nav-item">
+                        <a class="nav-link gateway-tab-link @(isActiveGateway ? "active" : "")" href="#" data-id="@pt.PaymentTypeId" onclick="selectGatewayTab(@pt.PaymentTypeId); return false;">
+                            @pt.PaymentType
+                        </a>
+                    </li>
+                }
+            }
+            else
+            {
+                <li class="nav-item"><span class="nav-link disabled">Data not found</span></li>
+            }
+        </ul>
+    </div>
+
+    <div class="card-body">
+        <div class="row">
+            <!-- Left: dynamic field inputs for the selected gateway -->
+            <div class="col-md-8" id="configFieldsCard" style="display:none;">
+                <div id="configFieldsContainer" class="row row-gap-3"></div>
+                <div id="configEmptyMsg" class="text-muted" style="display:none;">
+                    No fields defined for this payment gateway yet.
+                </div>
+                <div class="mt-3">
+                    @if (p.CanAdd)
+                    {
+                        <button type="button" id="btnSaveConfig" class="btn btn-dark" disabled>Save</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Right: gateway logo / description / link -->
+            <div class="col-md-4" id="gatewayInfoCard" style="display:none;">
+                <div class="text-center border rounded p-3">
+                    <div id="gatewayInfoLink" class="mb-2"></div>
+                    <img id="gatewayInfoLogo" src="" alt="" style="max-height:60px;" class="mb-2" />
+                    <div id="gatewayInfoDesc" class="text-muted small"></div>
+                    <a id="gatewayInfoUrl" href="#" target="_blank" class="d-block mt-1"></a>
+                </div>
+            </div>
+
+            <div id="noGatewaySelectedMsg" class="text-muted" style="@(Model.ActivePaymentTypeId > 0 ? "display:none;" : "")">
+                Select a payment gateway above to configure it.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Right sidebar as a floating panel — reuse the same row if you want it inline instead -->
+<div class="position-fixed end-0 bg-white border-start shadow-lg" style="width:300px; overflow-y:auto;" id="defaultGatewayPanel">
+    <div class="p-3">
+        <h6 class="fw-bold mb-3">Select Payment Gateway</h6>
+        <div id="defaultGatewayList">
+            @* @foreach (var pt in Model.PaymentType)
+            {
+                <div class="form-check mb-2">
+                    <input class="form-check-input default-gateway-radio" type="radio" name="defaultGateway"
+                           id="defGw_@pt.PaymentTypeId" value="@pt.PaymentTypeId" @(Model.ActivePaymentTypeId == pt.PaymentTypeId ? "checked" : "")>
+                    <label class="form-check-label" for="defGw_@pt.PaymentTypeId">@pt.PaymentType</label>
+                </div>
+            } *@
+            @foreach (var pt in paymentTypes)
+            {
+                <div class="form-check mb-2">
+                    <input class="form-check-input default-gateway-radio" type="radio" name="defaultGateway"
+                           id="defGw_@pt.PaymentTypeId" value="@pt.PaymentTypeId" @(Model.ActivePaymentTypeId == pt.PaymentTypeId ? "checked" : "")>
+                    <label class="form-check-label" for="defGw_@pt.PaymentTypeId">@pt.PaymentType</label>
+                </div>
+            }
+            <div class="form-check mb-2">
+                <input class="form-check-input default-gateway-radio" type="radio" name="defaultGateway"
+                       id="defGw_none" value="0" @(Model.ActivePaymentTypeId == 0 ? "checked" : "")>
+                <label class="form-check-label" for="defGw_none">None</label>
+            </div>
+        </div>
+    </div>
+    <div class="p-3 border-top text-end">
+        @if (p.CanEdit)
+        {
+            <button type="button" id="btnSaveDefaultGateway" class="btn btn-dark">Save</button>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+        // Saved gateway for this company (from tbl_Mst_Payment_Method.PaymentTypeId).
+        // 0 / null means no gateway configured yet.
+        window.activePaymentTypeId = @Json.Serialize(Model.ActivePaymentTypeId);
+    </script>
+    <script src="~/assets/js/PaymentTypeConfig.js"></script>
+}

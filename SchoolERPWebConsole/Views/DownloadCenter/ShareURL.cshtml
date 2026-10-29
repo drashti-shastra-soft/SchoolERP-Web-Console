@@ -1,0 +1,189 @@
+﻿@model SchoolERPWebConsole.Domain.AddSharedLinkViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Generate Shareable URL";
+    var p = Model.Permissions;
+}
+<style>
+    #individualSearchResults {
+        position: absolute;
+        z-index: 1050;
+        width: 100%;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    #panelIndividual {
+        position: relative;
+    }
+</style>
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Generate Shareable URL</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (p.CanAdd)
+        {
+            <button type="button" onclick="generateLink()" class="btn btn-success top-btn">
+                <i class="ti ti-link me-1"></i> Send
+            </button>
+        }
+        <a href="/DownloadCenter/UploadContent" class="btn btn-secondary top-btn">
+            <i class="ti ti-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-6">
+        <div class="card shadow-tbl-outer">
+            <div class="card-body">
+                <div class="row row-gap-3">
+                    <div class="col-md-12">
+                        <label class="form-label">Share Title <span class="text-danger">*</span></label>
+                        <input type="text" id="genTitle" class="form-control" required placeholder="e.g., Weekly Assignments">
+                        <span class="text-danger small d-none" id="err-genTitle">Share title is required.</span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Share Date <span class="text-danger">*</span></label>
+                        <input type="date" id="genDate" class="form-control" required value="@DateTime.Now.ToString("yyyy-MM-dd")">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Valid Upto <span class="text-danger">*</span></label>
+                        <input type="date" id="genValid" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label mb-2">Selected Documents (<span id="selCount">0</span>)</label>
+                        <div id="selList" class="rounded p-2 bg-light" style="max-height:220px; overflow-y:auto;">
+                            <span class="text-muted small">No documents selected.</span>
+                        </div>
+                    </div>
+
+                    <div id="resultBox" class="col-md-12 d-none">
+                        <label class="form-label text-success fw-bold">Generated Link:</label>
+                        <div class="input-group">
+                            <input type="text" id="genResult" class="form-control bg-white" readonly>
+                            <button class="btn btn-outline-primary" type="button" onclick="copyResult()">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6">
+        <div class="card shadow-tbl-outer">
+            <div class="card-body">
+
+                <label class="form-label">Send To <span class="text-danger">*</span></label>
+                <div class="d-flex gap-4 mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input sendto-radio" type="radio" name="SendToType"
+                               id="sendToGroup" value="GROUP" checked>
+                        <label class="form-check-label" for="sendToGroup">Group</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input sendto-radio" type="radio" name="SendToType"
+                               id="sendToClass" value="CLASS">
+                        <label class="form-check-label" for="sendToClass">Class</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input sendto-radio" type="radio" name="SendToType"
+                               id="sendToIndividual" value="INDIVIDUAL">
+                        <label class="form-check-label" for="sendToIndividual">Individual</label>
+                    </div>
+                </div>
+
+                <!-- ============== GROUP (ROLE-WISE) PANEL ============== -->
+                <div id="panelGroup" class="sendto-panel">
+                    <div class="row row-gap-2 border rounded p-3">
+                        @if (Model.RoleList != null)
+                        {
+                            foreach (var item in Model.RoleList)
+                            {
+                                <div class="col-6 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input role-checkbox" type="checkbox"
+                                               name="SelectedRoleIds" value="@item.RoleID"
+                                               id="role_@item.RoleID">
+                                        <label class="form-check-label" for="role_@item.RoleID">
+                                            @item.RoleName
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- ============== CLASS PANEL ============== -->
+                <div id="panelClass" class="sendto-panel" style="display:none;">
+                    <select id="ddlClass" class="form-select mb-3">
+                        <option value="">-- Select Class --</option>
+                        @if (Model.Classes != null)
+                        {
+                            foreach (var c in Model.Classes)
+                            {
+                                <option value="@c.ClassID">@c.ClassName</option>
+                            }
+                        }
+                    </select>
+
+                    <div class="border rounded p-3">
+                        <label class="form-label fw-semibold">Section <span class="text-danger">*</span></label>
+                        <div id="sectionContainer" class="row row-gap-2">
+                            <div class="text-muted small">Select a class to load sections</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============== INDIVIDUAL PANEL ============== -->
+                <div id="panelIndividual" class="sendto-panel" style="display:none;">
+                    <div class="input-group mb-3">
+                        <select id="ddlIndividualRole" class="form-select" style="max-width:150px;">
+                            @if (Model.RoleList != null)
+                            {
+                                foreach (var item in Model.RoleList)
+                                {
+                                    <option value="@item.RoleID">@item.RoleName</option>
+                                }
+                            }
+                        </select>
+                        <input type="text" id="txtIndividualSearch" class="form-control"
+                               placeholder="Search name / admission no...">
+                        <button type="button" id="btnAddIndividual" class="btn btn-dark">Add</button>
+                    </div>
+
+                    <!-- live search results dropdown -->
+                    <div id="individualSearchResults" class="list-group position-relative"
+                         style="max-height:200px; overflow-y:auto; display:none;"></div>
+
+                    <div class="border rounded p-2 mt-2">
+                        <input type="text" id="txtFilterAdded" class="form-control mb-2"
+                               placeholder="Search...">
+                        <div id="addedIndividualsList"></div>
+                    </div>
+
+                    <!-- hidden inputs submitted with the form -->
+                    <div id="hiddenIndividualInputs"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+</div>
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+    </script>
+
+    <script src="~/assets/js/ShareURL.js"></script>
+}

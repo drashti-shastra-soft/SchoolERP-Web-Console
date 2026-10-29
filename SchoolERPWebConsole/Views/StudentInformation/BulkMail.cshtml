@@ -1,0 +1,280 @@
+﻿@model SchoolERPWebConsole.Domain.StudentListPageViewModel
+@{
+    ViewData["Title"] = "Students List";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+
+    var p = Model.Permissions;
+
+    var activeCustomFieldsOnTable = Model.CustomFields?.Where(f => f.IsActive && f.OnTable).OrderBy(f => f.DisplayOrder).ToList() ?? new List<FieldModel>();
+
+    int totalPages = (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize);
+
+    int startPage = Math.Max(1, Model.PageNumber - 2);
+    int endPage = Math.Min(totalPages, startPage + 4);
+
+    if (endPage - startPage < 4)
+    {
+        startPage = Math.Max(1, endPage - 4);
+    }
+
+    // Helper: build pagination URL preserving all current filters
+    string PageUrl(int pageNum) => Url.Action("Students", "StudentInformation", new
+    {
+        page = pageNum,
+        pageSize = Model.PageSize,
+        classId = Model.SelectedClassId,
+        sectionId = Model.SelectedSectionId,
+        search = Model.SearchTerm,
+        viewType = Model.ViewType
+    })!;
+}
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+
+    </style>
+}
+
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Send Email</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1 responsive-btn-group">
+    </div>
+</div>
+<!-- End Page Header -->
+<!-- start row -->
+<div class="row">
+
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <form method="get" action="/StudentInformation/BulkMail" id="filterForm">
+                    <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                    <input type="hidden" name="viewType" id="hdnViewType" value="@Model.ViewType" />
+                    <input type="hidden" name="page" id="hdnPageIndex" value="1" />
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 filter-toolbar">
+
+                        <!-- ── Search Box ─────────────────────────────────── -->
+                        <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                            <i class="fas fa-search search-icon-input"></i>
+                            <input type="text"
+                                   name="search"
+                                   id="txtSearchInput"
+                                   class="form-control border-0 ps-2 search-input-responsive"
+                                   placeholder="Search by name, roll, admission..."
+                                   value="@Model.SearchTerm"
+                                   autocomplete="off" />
+                            @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                            {
+                                <a href="javascript:void(0)" onclick="clearSearch()" class="text-muted ms-1" title="Clear search">
+                                    <i class="ti ti-x fs-14"></i>
+                                </a>
+                            }
+                        </div>
+
+                        <div class="d-flex align-items-center flex-wrap gap-2 flex-shrink-0 filter-actions-wrap">
+
+                            <!-- ── Filter Dropdown ────────────────────────── -->
+                            <div class="dropdown">
+                                <a href="#" id="btnFilterToggle" class="btn btn-white border btn-lg @(Model.SelectedClassId.HasValue || Model.SelectedSectionId.HasValue ? "text-primary border-primary" : "")"
+                                   data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                    <i class="ti ti-filter me-1"></i>Filters
+                                    @if (Model.SelectedClassId.HasValue || Model.SelectedSectionId.HasValue)
+                                    {
+                                        <span class="badge bg-primary ms-1 mt-1">
+                                            @((Model.SelectedClassId.HasValue ? 1 : 0) + (Model.SelectedSectionId.HasValue ? 1 : 0))
+                                        </span>
+                                    }
+                                </a>
+                                <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0" id="filter-dropdown">
+                                    <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                        <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                        <div class="d-flex align-items-center justify-content-end">
+                                            <!-- Reset: was type="submit" (caused a real page reload even though onclick ran) -->
+                                            <button type="button" class="btn btn-light btn-md me-2 fw-medium" onclick="resetAllFilters()" id="btnResetFilters">Reset</button>
+
+                                            <!-- Apply: was type="submit" -->
+                                            <button type="button" class="btn text-primary fs-6 fw-medium" onclick="applyFilters()" id="btnApplyFilters">
+                                                <i class="ti ti-filter me-1"></i>Apply
+                                            </button>
+                                            <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none" id="btnCloseFilter" aria-label="Close">
+                                                <i class="ti ti-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="filter-body pb-0 p-3">
+                                        <!-- Class Filter -->
+                                        <div class="mb-3">
+                                            <label class="form-label mb-1 fw-semibold">Class</label>
+                                            <select name="classId" id="classSelect" class="form-select form-control select2">
+                                                <option value="">All Classes</option>
+                                                @if (ViewBag.Classes != null)
+                                                {
+                                                    @foreach (var c in ViewBag.Classes)
+                                                    {
+                                                        <option value="@c.ClassID">
+                                                            @c.ClassName
+                                                        </option>
+                                                    }
+                                                }
+
+                                            </select>
+                                        </div>
+                                        <!-- Section Filter — populated via AJAX when class changes -->
+                                        <div class="mb-3">
+                                            <label class="form-label mb-1 fw-semibold">Section</label>
+                                            <select name="sectionId" id="sectionSelect" class="form-select form-control select2">
+                                                <option value="">All Sections</option>
+                                                @foreach (var s in ViewBag.Sections)
+                                                {
+                                                    <option value="@s.SectionID">
+                                                        @s.SectionName
+                                                    </option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ── View Toggle ────────────────────────────── -->
+                            <div class="bg-white border border-muted rounded px-1 py-1 d-flex align-items-center">
+                                <a href="#list-v" id="list-view-btn"
+                                   class="btn rounded d-flex align-items-center @(Model.ViewType == "list" ? "active" : "")">
+                                    <i class="ti ti-list fs-14 text-body"></i>
+                                </a>
+                                <a href="#card-v" id="card-view-btn"
+                                   class="btn rounded d-flex align-items-center @(Model.ViewType == "card" ? "active" : "")">
+                                    <i class="ti ti-layout-grid fs-14 text-body"></i>
+                                </a>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2 col-auto d-flex">
+                        <label class="form-label d-block mb-1">Select All</label>
+                        <input type="checkbox" class="form-check-input" id="chkSelectAll" style="width:20px;height:20px;margin-left:10px">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1" for="ddlMessageTo">Message To <span class="text-danger">*</span></label>
+                        <select id="ddlMessageTo" class="form-select">
+                            <option value="" selected>Select</option>
+                            <option value="1">Student</option>
+                            <option value="2">Parent</option>
+                            <option value="3">Both</option>
+                        </select>
+                        <div class="text-danger small mt-1 d-none" id="messageToError">Message To is required.</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1" for="ddlTemplate">Notification Type <span class="text-danger">*</span></label>
+                        <select id="ddlTemplate" class="form-select">
+                            <option value="" selected>Select</option>
+                            <option value="1">Student Admission</option>
+                            <option value="2">Login Credential</option>
+                            <option value="3">Both</option>
+                        </select>
+                        <div class="text-danger small mt-1 d-none" id="templateError">Notification Type is required.</div>
+                    </div>
+                    <div class="col text-md-end">
+                        <span class="text-muted small me-2" id="selectedCount">0 selected</span>
+                        <button type="button" id="btnSend" class="btn btn-dark" onclick="sendBulkMail()" disabled>
+                            <i class="ti ti-send me-1"></i> Send
+                        </button>
+                        <div class="text-danger small mt-1 d-none" id="selectionError">Please select at least one student.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ══ ACTIVE FILTER BADGES ══════════════════════════════════════════ -->
+    @{
+        bool hasActiveFilters = !string.IsNullOrEmpty(Model.SearchTerm)
+        || Model.SelectedClassId.HasValue
+        || Model.SelectedSectionId.HasValue;
+    }
+    @if (hasActiveFilters)
+    {
+        <div class="col-xl-12">
+            <div class="card shadow-tbl border-0 py-2 mb-2">
+                <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                    <span class="text-muted small fw-bold ms-2 me-2">
+                        <i class="ti ti-filter-check me-1"></i>Active Filters:
+                    </span>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                        {
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-flex align-items-center gap-1 fw-medium px-2 py-1">
+                                Search: @Model.SearchTerm
+                                <a href="@PageUrl(1).Replace("search=" + Uri.EscapeDataString(Model.SearchTerm ?? ""), "search=")"
+                                   class="text-primary ms-1"><i class="ti ti-x" style="font-size:10px"></i></a>
+                            </span>
+                        }
+                        @if (Model.SelectedClassId.HasValue)
+                        {
+                            var className = ((IEnumerable<dynamic>)ViewBag.Classes)
+                            .FirstOrDefault(c => c.ClassID == Model.SelectedClassId.Value)?.ClassName ?? Model.SelectedClassId.ToString();
+                            <a href="@Url.Action("Students", "StudentInformation", new { page = 1, pageSize = Model.PageSize, sectionId = Model.SelectedSectionId, search = Model.SearchTerm, viewType = Model.ViewType })"
+                               class="badge bg-info-subtle text-info border border-info-subtle d-flex align-items-center gap-1 fw-medium px-2 py-1 text-decoration-none">
+                                Class: @className <i class="ti ti-x ms-1" style="font-size:10px"></i>
+                            </a>
+                        }
+                        @if (Model.SelectedSectionId.HasValue)
+                        {
+                            var sectionName = ((IEnumerable<dynamic>)ViewBag.Sections)
+                            .FirstOrDefault(s => s.SectionID == Model.SelectedSectionId.Value)?.SectionName ?? Model.SelectedSectionId.ToString();
+                            <a href="@Url.Action("Students", "StudentInformation", new { page = 1, pageSize = Model.PageSize, classId = Model.SelectedClassId, search = Model.SearchTerm, viewType = Model.ViewType })"
+                               class="badge bg-success-subtle text-success border border-success-subtle d-flex align-items-center gap-1 fw-medium px-2 py-1 text-decoration-none">
+                                Section: @sectionName <i class="ti ti-x ms-1" style="font-size:10px"></i>
+                            </a>
+                        }
+                    </div>
+                    <a href="/StudentInformation/Students?viewType=@Model.ViewType&pageSize=@Model.PageSize&page=1"
+                       class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none">
+                        <i class="ti ti-trash me-1"></i>Clear All
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2"><i class="ti ti-filter-check me-1"></i>Active Filters:</span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none" id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="studentTableContainer">
+        @await Html.PartialAsync("_StudentListTablePartial", Model)
+    </div>
+    <!-- end col -->
+</div>
+<!-- end row -->
+<!-- end copy -->
+@section Scripts {
+    <script src="~/assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+    <script src="~/assets/js/BulkMailList.js"></script>
+}

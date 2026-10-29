@@ -1,0 +1,76 @@
+﻿@model SchoolERPWebConsole.Domain.BankClearingAddViewModel
+@{
+    var editable = Model.Permissions.CanEdit; // gate checkbox enable, actual toggle still via JS edit mode
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm" id="clearingTable">
+                    <thead>
+                        <tr class="bg-light">
+                            <th style="width:36px;">#</th>
+                            <th>VoucherNo</th>
+                            <th>A/C No</th>
+                            <th>Account Name</th>
+                            <th>Narration</th>
+                            <th>Cheq/DD</th>
+                            <th>CheqDDDate</th>
+                            <th class="text-end">Amount</th>
+                            <th style="width:150px;">
+                                Clearing Date
+                                <input type="date" class="form-control form-control-sm mt-1" id="txtGlobalClearingDate"
+                                       value="@DateTime.Today.ToString("yyyy-MM-dd")">
+                            </th>
+                            <th style="width:40px;" class="text-center">
+                                All<br />
+                                <input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this)">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="clearingRows">
+                        @if (Model.Rows == null || !Model.Rows.Any())
+                        {
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-3">
+                                    @(Model.BankFieldValue > 0 ? "No cheques found for the selected filters." : "Select a bank and search to load cheques.")
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            int i = 1;
+                            @foreach (var row in Model.Rows)
+                            {
+                                <tr>
+                                    <td>@(i++)</td>
+                                    <td>@row.VoucherNo</td>
+                                    <td>@row.AccID</td>
+                                    <td>@row.AccountDisplayName</td>
+                                    <td>@row.Narration</td>
+                                    <td>@row.TranNo</td>
+                                    <td>@(row.CheqDDDate?.ToString("dd/MM/yyyy"))</td>
+                                    <td class="text-end">@row.Amount.ToString("N2")</td>
+                                    <td>@(row.ClearingDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                    <td class="text-center">
+                                        <input type="checkbox" class="clearing-row-check"
+                                               data-detail-id="@row.DetailID"
+                                               data-amount="@row.Amount"
+                                               disabled>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-footer d-flex justify-content-end gap-4">
+            <span>Uncleared : <strong id="lblUnclearedTotal">@Model.UnclearedTotal.ToString("N2")</strong></span>
+            <span>Cleared : <strong id="lblClearedTotal">@Model.ClearedTotal.ToString("N2")</strong></span>
+            <span>Total : <strong id="lblGrandTotal">@Model.GrandTotal.ToString("N2")</strong></span>
+        </div>
+    </div>
+</div>

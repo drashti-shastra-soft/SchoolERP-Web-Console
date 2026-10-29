@@ -1,0 +1,99 @@
+﻿@model SchoolERPWebConsole.Domain.StaffAttendanceDayWiseReportPageViewModel
+@{
+    var p = Model.Permissions;
+    var rowCount = Model.AttendanceDayWise?.Count ?? 0;
+}
+
+<div class="card shadow-tbl-outer">
+    <div class="card-body p-2">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="AttendanceTypeTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Sr.No</th>
+                        <th>Staff ID</th>
+                        <th>Role</th>
+                        <th>Name</th>
+                        <th>Attendance</th>
+                        <th>Date</th>
+                        <th>Source</th>
+                        <th>IP Address</th>
+                        <th>Agent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.AttendanceDayWise != null && Model.AttendanceDayWise.Any())
+                    {
+                        var startIndex = (Model.PageNumber - 1) * Model.PageSize;
+                        for (int i = 0; i < Model.AttendanceDayWise.Count; i++)
+                        {
+                            var s = Model.AttendanceDayWise[i];
+                            <tr class="student-row" data-id="@s.StaffID">
+                                <td>@(startIndex + i + 1)</td>
+                                <td>@s.StaffCode</td>
+                                <td>@s.RoleName</td>
+                                <td>@s.StaffName</td>
+                                <td>
+                                    @{
+                                        var attendanceLabel = string.IsNullOrWhiteSpace(s.StaffAttendance) ? "N/A" : s.StaffAttendance;
+                                        var badgeClass = attendanceLabel switch
+                                        {
+                                            "Present" or "P" => "bg-success",
+                                            "Absent" or "A" => "bg-danger",
+                                            "Late" or "L" => "bg-warning text-dark",
+                                            "Half Day" or "H" => "bg-info text-dark",
+                                            _ => "bg-danger"
+                                        };
+                                    }
+                                    <span class="badge @badgeClass px-2 py-1">@attendanceLabel</span>
+                                </td>
+                                <td>@(s.StaffAttendanceDate?.ToString("dd-MM-yyyy") ?? "")</td>
+                                <td>Manual</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="dataTables_empty text-center text-muted py-4">No records found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @{
+            var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize) : 0;
+        }
+        @if (totalPages > 1)
+        {
+            <nav class="mt-2">
+                <ul class="pagination pagination-sm justify-content-end mb-0">
+                    @for (int pg = 1; pg <= totalPages; pg++)
+                    {
+                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                            <a class="page-link"
+                               href="@Url.Action("StudentAttendanceDayWiseReport", new {
+                                        pageNumber = pg,
+                                        pageSize = Model.PageSize,
+                                        searchTerm = Model.SearchTerm,
+                                        companyId = Model.CompanyId,
+                                        sessionId = Model.SessionId,
+                                        roleId = Model.RoleId,
+                                        sectionId = Model.SectionID,
+                                        attendanceType = Model.AttendanceType,
+                                        searchType = Model.SearchType,
+                                        dateFrom = Model.DateFrom,
+                                        dateTo = Model.DateTo
+                                    })">
+                                @pg
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    </div>
+</div>
+

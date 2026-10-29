@@ -1,0 +1,75 @@
+﻿@* Put this partial on the Student Fees page:  <partial name="_CollectFeesModal" />
+   Page must also define:  var studentId  (see the bottom script)  and have jQuery, Bootstrap 5, SweetAlert2. *@
+
+<input type="hidden" id="hdnFeeStudentId" value="@ViewBag.StudentId" />
+
+<div class="modal fade" id="modalCollectFees" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background:linear-gradient(90deg,#3a5a78,#2e7d95)">
+                <h5 class="modal-title fw-bold">Collect Fees</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="d-none row mb-3 align-items-center">
+                    <label class="col-sm-3 text-end col-form-label">Date <span class="text-danger">*</span></label>
+                    <div class="col-sm-9">
+                        <input type="date" id="cfDate" class="form-control" required />
+                    </div>
+                </div>
+
+                <div class="row mb-3 align-items-center">
+                    <label class="col-sm-3 text-end col-form-label">Payment Mode</label>
+                    <div class="col-sm-9" id="cfModes"></div>
+                </div>
+
+                <!-- extra fields, shown only for the modes that need them -->
+                <div id="cfChequeBox" class="d-none">
+                    <div class="row mb-3">
+                        <label class="col-sm-3 text-end col-form-label" id="cfChequeNoLabel">Cheque No</label>
+                        <div class="col-sm-4"><input type="text" id="cfChequeNo" class="form-control" maxlength="50" /></div>
+                        <div class="col-sm-5"><input type="date" id="cfChequeDate" class="form-control" title="Cheque / DD date" /></div>
+                    </div>
+                    <div class="row mb-3">
+                        <label class="col-sm-3 text-end col-form-label">Bank Name</label>
+                        <div class="col-sm-9"><input type="text" id="cfBankName" class="form-control" maxlength="150" /></div>
+                    </div>
+                </div>
+                <div id="cfRefBox" class="d-none">
+                    <div class="row mb-3">
+                        <label class="col-sm-3 text-end col-form-label">Reference No</label>
+                        <div class="col-sm-9"><input type="text" id="cfReferenceNo" class="form-control" maxlength="100" placeholder="UTR / UPI ref / card txn ref" /></div>
+                    </div>
+                </div>
+                <div id="cfOnlineBox" class="d-none">
+                    <div class="row mb-3">
+                        <div class="col-sm-9 offset-sm-3 text-muted small">You will be redirected to the secure payment page to finish paying.</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-3 text-end col-form-label">Note</label>
+                    <div class="col-sm-9"><textarea id="cfNote" class="form-control" rows="3" maxlength="500"></textarea></div>
+                </div>
+
+                <div id="cfLines"></div>
+
+                <div class="d-flex justify-content-between text-danger fw-bold mt-2">
+                    <span>Fine</span><span id="cfFine">₹0.00</span>
+                </div>
+                <div class="d-flex justify-content-end mt-3 fw-bold">
+                    <span class="me-5">Total Pay</span><span id="cfTotal">₹0.00</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="cfPay" class="btn text-white" style="background:#37535d">
+                    <i class="fa fa-money-bill"></i> Pay
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+

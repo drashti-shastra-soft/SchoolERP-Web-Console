@@ -1,0 +1,645 @@
+@model SchoolERPWebConsole.Domain.StudentCertificatePageViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Student Certificate";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+}
+
+<style>
+    .dt-buttons {
+        display: none !important;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Student Certificate Management</h6>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-1">
+        @if (p.CanAdd)
+        {
+            <a href="/Certificate/AddStudentCertificate" class="btn btn-primary top-btn"><i class="ti ti-plus me-1"></i>Add </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()"><i class="ti ti-pencil me-1"></i>Edit</button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger top-btn" disabled onclick="deleteSelected()"><i class="ti ti-trash me-1"></i>Delete</button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+        <button id="btnPreview" class="btn btn-teal" disabled onclick="previewSelected()"><i class="ti ti-eye me-1"></i>Preview</button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Filters -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 ">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearchInput"
+                               placeholder="Search by Student Certificate name..." style="min-width: 220px;">
+                    </div>
+
+                    <!-- Filters dropdown -->
+                    <div class="dropdown">
+                        <a href="Javascript:Void(0);" id="btnFilterToggle"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl" id="filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn btn-light btn-md me-2 fw-medium" onclick="resetAllFilters()" id="btnResetFilters">Reset</button>
+                                    <button type="button" class="btn text-primary fs-6 fw-medium" id="btnApplyFilters">Apply</button>
+                                </div>
+                            </div>
+
+                            <div class="filter-body pb-0">
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label mb-1">Status</label>
+                                        <select class="form-select form-control" id="ddlFilterStatus">
+                                            <option value="">All</option>
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12">
+        <div class="card shadow-tbl">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table" id="certificateTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width: 50px;">Select</th>
+                                <th>Certificate Name</th>
+                                <th>Background Image</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in (Model.Certificates ?? new List<StudentCertificateViewModel>()))
+                            {
+                                <tr class="item-row" data-status="@(item.IsActive ? "active" : "inactive")" onclick="selectItem(@item.CertificateID, this)" style="cursor: pointer;">
+                                    <td class="text-center">
+                                        <input type="checkbox" name="selectedCertificate"
+                                               class="form-check-input student-checkbox"
+                                               value="@item.CertificateID">
+                                    </td>
+                                    <td>@item.CertificateName</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.BackgroundImageBase64))
+                                        {
+                                            <img src="@item.BackgroundImageBase64" style="width:50px;height:50px;" class="rounded border" alt="Background" />
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">No Image</span>
+                                        }
+                                    </td>
+                                    <td class="text-center" onclick="event.stopPropagation()">
+                                        <div class="form-check form-switch d-flex justify-content-center">
+                                            <input class="form-check-input" type="checkbox" @(item.IsActive ? "checked" : "") onclick="toggleStatus(@item.CertificateID, this.checked)">
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!----Preview Modal----->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 90vw;">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header d-flex align-items-center bg-light">
+                <h5 class="modal-title fw-bold mb-0">Certificate Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-secondary bg-opacity-10 d-flex justify-content-center overflow-auto" style="min-height: 500px;">
+                <div id="previewContainer" class="shadow bg-white"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+    <script>
+        function triggerExport(index) {
+            if ($.fn.DataTable.isDataTable("#certificateTable")) {
+                const table = $("#certificateTable").DataTable();
+                table.button(index).trigger();
+            }
+        }
+
+        // ========================================
+        // Filter badges — sessionStorage persistence
+        // ========================================
+        const FILTER_KEY = 'appliedFilters_certificate';
+        let appliedFilters = {};
+        try {
+            const stored = sessionStorage.getItem(FILTER_KEY);
+            if (stored) appliedFilters = JSON.parse(stored);
+        } catch (e) { appliedFilters = {}; }
+
+        function saveAppliedFilters() {
+            try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(appliedFilters)); }
+            catch (e) { console.warn('sessionStorage unavailable'); }
+        }
+
+        function clearAppliedFilters() {
+            appliedFilters = {};
+            try { sessionStorage.removeItem(FILTER_KEY); } catch (e) { }
+        }
+
+        function renderFilterBadges() {
+            const container = document.getElementById('badgeContainer');
+            const mainContainer = document.getElementById('activeFilterBadges');
+            if (!container || !mainContainer) return;
+
+            container.innerHTML = '';
+            Object.entries(appliedFilters).forEach(([id, { label, text }]) => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle d-flex align-items-center gap-1 fw-medium px-2 py-1';
+                badge.innerHTML = `${label}: ${text} <i class="ti ti-x ms-1 cursor-pointer" onclick="removeFilter('${id}')" style="font-size:10px;"></i>`;
+                container.appendChild(badge);
+            });
+
+            mainContainer.style.display = Object.keys(appliedFilters).length > 0 ? 'block' : 'none';
+        }
+
+        // ========================================
+        // Applies search text + status filter to table rows (client-side)
+        // ========================================
+        function applyRowFilters() {
+            const q = (document.getElementById('txtSearchInput')?.value || '').toLowerCase();
+            const statusVal = document.getElementById('ddlFilterStatus')?.value || '';
+
+            document.querySelectorAll('#certificateTable tbody tr').forEach(row => {
+                if (!row.classList.contains('item-row')) return;
+
+                const matchesText = row.textContent.toLowerCase().includes(q);
+                const matchesStatus = !statusVal || row.getAttribute('data-status') === statusVal;
+
+                row.style.display = (matchesText && matchesStatus) ? '' : 'none';
+            });
+        }
+
+        function applyFilters() {
+            const searchEl = document.getElementById('txtSearchInput');
+            const statusEl = document.getElementById('ddlFilterStatus');
+
+            const searchVal = searchEl?.value.trim();
+            if (searchVal) appliedFilters['txtSearchInput'] = { label: 'Search', text: searchVal };
+            else delete appliedFilters['txtSearchInput'];
+
+            if (statusEl?.value) {
+                appliedFilters['ddlFilterStatus'] = {
+                    label: 'Status',
+                    text: statusEl.options[statusEl.selectedIndex]?.text || statusEl.value
+                };
+            } else delete appliedFilters['ddlFilterStatus'];
+
+            saveAppliedFilters();
+            renderFilterBadges();
+            applyRowFilters();
+        }
+
+        function removeFilter(filterId) {
+            if (filterId === 'ddlFilterStatus') {
+                const el = document.getElementById('ddlFilterStatus');
+                if (el) el.value = '';
+            } else if (filterId === 'txtSearchInput') {
+                const el = document.getElementById('txtSearchInput');
+                if (el) el.value = '';
+            }
+            delete appliedFilters[filterId];
+            saveAppliedFilters();
+            renderFilterBadges();
+            applyRowFilters();
+        }
+
+        function resetAllFilters() {
+            document.getElementById('txtSearchInput').value = '';
+            const statusEl = document.getElementById('ddlFilterStatus');
+            if (statusEl) statusEl.value = '';
+
+            clearAppliedFilters();
+            renderFilterBadges();
+            applyRowFilters();
+        }
+
+        $(document).ready(function () {
+            $("#certificateTable").DataTable({
+                dom: "Bfrtip",
+                buttons: [
+                    { extend: "copy", exportOptions: { columns: [1, 2] } },
+                    { extend: "csv", exportOptions: { columns: [1, 2] } },
+                    { extend: "excel", exportOptions: { columns: [1, 2] } },
+                    { extend: "pdf", exportOptions: { columns: [1, 2] } },
+                    { extend: "print", exportOptions: { columns: [1, 2] } },
+                ],
+                searching: false,
+                paging: false,
+                info: false,
+                language: {
+                    emptyTable: "No records found.",
+                    zeroRecords: "No records found."
+                }
+        });
+
+            // Restore filters from sessionStorage on load
+            if (appliedFilters['txtSearchInput']) {
+                document.getElementById('txtSearchInput').value = appliedFilters['txtSearchInput'].text;
+            }
+            if (appliedFilters['ddlFilterStatus']) {
+                const statusEl = document.getElementById('ddlFilterStatus');
+                if (statusEl) {
+                    const match = [...statusEl.options].find(o => o.text === appliedFilters['ddlFilterStatus'].text);
+                    if (match) statusEl.value = match.value;
+                }
+            }
+            renderFilterBadges();
+            applyRowFilters();
+
+            // Search box — live filter as you type
+            document.getElementById('txtSearchInput').addEventListener('keyup', function () {
+                applyFilters();
+            });
+
+            // Keep dropdown open while interacting inside it
+            document.getElementById('filter-dropdown')?.addEventListener('click', e => e.stopPropagation());
+
+            // Apply / Reset buttons inside dropdown
+            document.getElementById('btnApplyFilters')?.addEventListener('click', applyFilters);
+            document.getElementById('btnResetFilters')?.addEventListener('click', resetAllFilters);
+        });
+
+        var certificateEditor = null;
+        var selectedCertificateId = 0;
+
+        window.selectItem = function (id, row) {
+            selectedCertificateId = id;
+            document.querySelectorAll("#certificateTable tbody .item-row").forEach((r) => r.classList.remove("bg-light"));
+            row.classList.add("bg-light");
+
+            let checkedCount = $(".student-checkbox:checked").length;
+
+            $("#btnEdit").prop("disabled", checkedCount !== 1);
+            $("#btnPreview").prop("disabled", checkedCount !== 1);
+            $("#btnDelete").prop("disabled", checkedCount === 0);
+            $("#btnActive").prop("disabled", checkedCount === 0);
+            $("#btnInactive").prop("disabled", checkedCount === 0);
+        };
+
+        window.editSelected = function () {
+            if (selectedCertificateId === 0) return;
+            window.location.href = "/Certificate/AddStudentCertificate?id=" + selectedCertificateId;
+        };
+
+        window.previewSelected = function () {
+            if (selectedCertificateId === 0) return;
+            $.get("/Certificate/GetStudentCertificateByID?id=" + selectedCertificateId, function (resp) {
+                if (resp.success && resp.data) {
+                    var template = resp.data;
+
+                    var dummyData = {
+                        "\\[name\\]": "John Doe",
+                        "\\[dob\\]": "15-08-2010",
+                        "\\[present_address\\]": "123 Main Street, City, Country",
+                        "\\[guardian\\]": "Robert Doe",
+                        "\\[created_at\\]": new Date().toLocaleDateString("en-GB"),
+                        "\\[admission_no\\]": "ADM-2024-001",
+                        "\\[roll_no\\]": "101",
+                        "\\[class\\]": "X",
+                        "\\[section\\]": "A",
+                        "\\[gender\\]": "Male",
+                        "\\[admission_date\\]": "01-04-2024",
+                        "\\[category\\]": "General",
+                        "\\[cast\\]": "None",
+                        "\\[father_name\\]": "Robert Doe",
+                        "\\[mother_name\\]": "Jane Doe",
+                        "\\[religion\\]": "Christianity",
+                        "\\[email\\]": "student@example.com",
+                        "\\[phone\\]": "9876543210",
+                        "\\[student_photo\\]": template.enableStudentPhoto
+                            ? '<img src="/assets/images/default-user.png" style="width:100px; height:100px; object-fit:cover; border-radius:5px; border:1px solid #ccc;" />'
+                            : "",
+                    };
+
+                    var bodyHtml = template.bodyText || "";
+                    for (const [key, value] of Object.entries(dummyData)) {
+                        bodyHtml = bodyHtml.replace(new RegExp(key, "gi"), value);
+                    }
+
+                    var previewHtml = createCertificatePage(bodyHtml, template);
+                    $("#previewContainer").html(previewHtml);
+                    $("#previewModal").modal("show");
+                } else {
+                    alert("Failed to load template for preview.");
+                }
+            });
+        };
+
+        function createCertificatePage(bodyHtml, template) {
+            var bg = template.backgroundImageBase64 ? "url(" + template.backgroundImageBase64 + ")" : "none";
+
+            var containerStyle =
+                "width:" +
+                (template.bodyWidth || 800) +
+                "px;" +
+                "height:" +
+                (template.bodyHeight || 600) +
+                "px;" +
+                "background-image:" +
+                bg +
+                ";" +
+                "display: flex; flex-direction: column;";
+
+            var headerStyle =
+                "height:" +
+                (template.headerHeight || 0) +
+                "px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; box-sizing: border-box; padding: 0 15px; align-items: center;";
+
+            var footerStyle =
+                "height:" +
+                (template.footerHeight || 0) +
+                "px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; width: 100%; box-sizing: border-box; padding: 0 15px; align-items: center;";
+
+            var html =
+                '<div class="certificate-container" style="' +
+                containerStyle +
+                ' margin: 0 auto; overflow: hidden; background-repeat: no-repeat; background-size: 100% 100%; box-sizing: border-box; position: relative;">';
+
+            html +=
+                '<div style="' +
+                headerStyle +
+                '">' +
+                '<div style="text-align: left;">' +
+                (template.headerLeftText || "") +
+                "</div>" +
+                '<div style="text-align: center;">' +
+                (template.headerCenterText || "") +
+                "</div>" +
+                '<div style="text-align: right;">' +
+                (template.headerRightText || "") +
+                "</div>" +
+                "</div>";
+
+            html += '<div style="flex: 1; overflow: hidden; padding: 20px; box-sizing: border-box;">' + bodyHtml + "</div>";
+
+            html +=
+                '<div style="' +
+                footerStyle +
+                '">' +
+                '<div style="text-align: left;">' +
+                (template.footerLeftText || "") +
+                "</div>" +
+                '<div style="text-align: center;">' +
+                (template.footerCenterText || "") +
+                "</div>" +
+                '<div style="text-align: right;">' +
+                (template.footerRightText || "") +
+                "</div>" +
+                "</div>";
+
+            html += "</div>";
+            return html;
+        }
+
+        window.deleteSelected = function () {
+            if (selectedCertificateId === 0) return;
+            deleteCertificate(selectedCertificateId);
+        };
+
+        window.handleImageUpload = function (input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const base64 = e.target.result;
+                    const parts = base64.split(",");
+                    $("#BackgroundImage").val(parts[1]);
+                    $("#BackgroundImageType").val(parts[0].split(":")[1].split(";")[0]);
+                    $("#BackgroundImageName").val(file.name);
+
+                    $("#imagePreview").removeClass("d-none").find("img").attr("src", base64);
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        window.toggleStatus = function (id, isActive, isSingle = false) {
+            let idCardIds = [];
+
+            if (isSingle && id > 0) {
+                idCardIds.push(parseInt(id));
+            } else {
+                $(".student-checkbox:checked").each(function () {
+                    idCardIds.push(parseInt($(this).val()));
+                });
+                if (idCardIds.length === 0) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "No ID Card Selected",
+                        text: "Please select at least one ID Card.",
+                    });
+                    return;
+                }
+            }
+
+            const actionText = isActive ? "activate" : "deactivate";
+            const actionTitle = isActive ? "Activate ID Card(s)?" : "Deactivate ID Card(s)?";
+            const successTitle = isActive ? "Activated Successfully!" : "Deactivated Successfully!";
+            const successText = isActive
+                ? "The selected ID Card(s) have been activated."
+                : "The selected ID Card(s) have been deactivated.";
+
+            Swal.fire({
+                icon: isActive ? "question" : "warning",
+                title: actionTitle,
+                text: `Are you sure you want to ${actionText} the selected ID Card(s)?`,
+                showCancelButton: true,
+                confirmButtonText: isActive ? "Yes, Activate" : "Yes, Deactivate",
+                cancelButtonText: "Cancel",
+                customClass: {
+                    confirmButton: isActive ? "btn btn-success me-2" : "btn btn-danger me-2",
+                    cancelButton: "btn btn-secondary",
+                },
+                buttonsStyling: false,
+            }).then(function (result) {
+                if (!result.isConfirmed) {
+                    if (isSingle) location.reload();
+                    return;
+                }
+
+                $.ajax({
+                    url: "/Certificate/ToggleStudentCertificateStatus",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        ids: idCardIds.join(","),
+                        isActive: isActive,
+                    }),
+                    success: function (resp) {
+                        if (resp.success) {
+                            Swal.fire({
+                                icon: "success",
+                                title: successTitle,
+                                text: resp.message || successText,
+                                confirmButtonText: "OK",
+                                customClass: { confirmButton: "btn btn-success" },
+                                buttonsStyling: false,
+                            }).then(function () {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: resp.message || "Failed to update ID Card status.",
+                                confirmButtonText: "OK",
+                                customClass: { confirmButton: "btn btn-danger" },
+                                buttonsStyling: false,
+                            });
+                        }
+                    },
+                    error: function (xhr) {
+                        console.error("ID Card status update error:", xhr.status, xhr.responseText);
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "An unexpected error occurred while updating status.",
+                        });
+                    },
+                });
+            });
+        };
+
+        window.deleteCertificate = function (id) {
+            let selectedIds = [];
+            $(".student-checkbox:checked").each(function () {
+                selectedIds.push(parseInt($(this).val()));
+            });
+            if (selectedIds.length === 0) {
+                alert("Please select at least one student.");
+                return;
+            }
+            Swal.fire({
+                title: "Are you sure?",
+                text: "You are about to delete this student record. This action cannot be undone!",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#3085d6",
+                confirmButtonText: "Yes, delete it!",
+                customClass: {
+                    confirmButton: "btn btn-danger me-2",
+                    cancelButton: "btn btn-secondary",
+                },
+                buttonsStyling: false,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: "/Certificate/DeleteStudentCertificate",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify(selectedIds),
+                        success: function (res) {
+                            if (res.success) {
+                                Swal.fire("Deleted!", "Student record has been deleted.", "success").then(() =>
+                                    location.reload()
+                                );
+                            } else {
+                                Swal.fire("Error!", res.message || "Failed to delete student.", "error");
+                            }
+                        },
+                        error: function () {
+                            Swal.fire("Error!", "An unexpected error occurred.", "error");
+                        },
+                    });
+                }
+            });
+        };
+    </script>
+}

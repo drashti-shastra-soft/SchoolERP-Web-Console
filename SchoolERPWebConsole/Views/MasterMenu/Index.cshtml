@@ -1,0 +1,234 @@
+@*
+    ======================================================================
+    VIEW: MasterMenu / Index.cshtml
+    PURPOSE: Menu Management — Proper Tree-View UI with Drag & Drop Reordering
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.MenusPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Linq
+@using System.Collections.Generic
+@using SchoolERPWebConsole.Domain
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Menu Management";
+
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+
+    var menuGroups = (Model.Menus ?? new List<MenuViewModel>()).ToLookup(m => m.ParentID);
+
+    // Pre-compute a flat, ordered list with tree metadata.
+    var flatRows = new List<(MenuViewModel Menu, int Depth, bool IsLast, bool HasChildren, List<bool> AncIsLast, int? ParentId)>();
+
+    void BuildFlat(int? parentId, int depth, List<bool> ancIsLast)
+    {
+        if (depth > 20) return; // Prevent infinite recursion
+        var siblings = menuGroups[parentId].OrderBy(m => m.DisplayOrder).ToList();
+        for (int si = 0; si < siblings.Count; si++)
+        {
+            var m2      = siblings[si];
+            bool isLast = (si == siblings.Count - 1);
+            bool hasCh  = menuGroups.Contains(m2.MenuID);
+            flatRows.Add((m2, depth, isLast, hasCh, new List<bool>(ancIsLast), parentId));
+            if (hasCh)
+            {
+                var next = new List<bool>(ancIsLast) { isLast };
+                BuildFlat(m2.MenuID, depth + 1, next);
+            }
+        }
+    }
+
+    BuildFlat(null, 0, new List<bool>());
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/treeview.css" asp-append-version="true">
+}
+<style>
+    .tree-indent{
+        width:35px;
+    }
+    .tree-line-v {        
+        left: 25px;        
+        border-left: 1px dotted grey;
+    }
+    .tree-line-h {
+        left: 25px;
+        border-top: 1px dotted grey;
+    }
+    .sortable-ghost {
+        opacity: 0.4;
+        background-color: #e2eafc !important;
+    }
+    .drag-handle {
+        cursor: grab;
+        padding: 5px;
+        color: #adb5bd;
+    }
+    .drag-handle:active {
+        cursor: grabbing;
+    }
+    .cursor-move {
+        cursor: move;
+    }
+    
+
+    .tree-row.selected td {
+        background-color: #e3e4ef70 !important;
+    }
+
+    #menusTable tbody tr.tree-row.selected td {
+        background-color: var(--primary-transparent, #e3e4ef) !important;
+        box-shadow: inset 3px 0 0 var(--primary-transparent, #e3e4e);
+    }
+
+    #menusTable tbody tr.tree-row:hover:not(.selected) td {
+        background-color: #f8f9fa;
+    }
+
+    .tree-cell
+    {
+        z-index:1;
+    }
+</style>
+
+@* Page Notice *@
+@* Local alert div removed in favor of global toast system *@
+
+@* Page Header *@
+<style>
+    .dt-buttons { display: none !important; }
+</style>
+
+<div class="sticky-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">
+            Menu Management
+        </h6>        
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <a href="/MasterMenu/AddMenus" class="btn btn-primary shadow-sm top-btn" id="btnAddMenu">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info shadow-sm top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger shadow-sm top-btn" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center shadow-sm top-btn" onclick="triggerExport('print')">
+                <i class="ti ti-printer me-1"></i> Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-warning dropdown-toggle d-inline-flex align-items-center shadow-sm top-btn" type="button" data-bs-toggle="dropdown">
+                    <i class="ti ti-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('copy')"><i class="ti ti-copy me-2"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('csv')"><i class="ti ti-file-text me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('excel')"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('pdf')"><i class="ti ti-file-description me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+
+
+<div class="col-xl-12">
+    <div class="card mb-2 shadow-tbl-outer">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                <!-- ── Search box (name="search" so form submits it) ── -->
+                <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                    <i class="fas fa-search search-icon-input"></i>
+                    <input type="text"
+                           name="search"
+                           id="txtSearchInput"
+                           value="@Model.SearchTerm"
+                           class="form-control border-0 ps-2 search-input-responsive"
+                           placeholder="Search by Menu Name, Key..." />
+                </div>
+
+                <!-- Hidden form for filter submission — outside Bootstrap dropdown -->
+                <form method="get" asp-action="Index" id="frmSearch" style="display:none;">
+                    <input type="hidden" name="pageIndex" id="hdnPageIndex" value="1" />
+                    <input type="hidden" name="search" id="hdnSearch" value="@Model.SearchTerm" />
+                    <input type="hidden" name="sessionID" id="hdnSessionID" value="" />
+                    <input type="hidden" name="companyId" id="hdnCompanyId" value="" />
+                    <input type="hidden" name="sectionID" id="hdnSectionID" value="" />
+                    <input type="hidden" name="pageSize" id="hdnPageSize" value="@Model.PageSize" />
+                </form>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active filter badges -->
+<div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+    <div class="card shadow-tbl border-0 py-2 mb-2">
+        <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+            <span class="text-muted small fw-bold ms-2 me-2">
+                <i class="ti ti-filter-check me-1"></i>Active Filters:
+            </span>
+            <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+            <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                    id="btnResetAllFilters" onclick="resetAllFilters()">
+                <i class="ti ti-trash me-1"></i>Clear All
+            </button>
+        </div>
+    </div>
+</div>
+<div id="classPageNotice"></div>
+<div id="menusTableContainer">
+    @await Html.PartialAsync("_MenusTablePartial", Model)
+</div>
+
+
+
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+    </script>
+
+    <script src="~/assets/js/MasterMenu.js"></script>
+}

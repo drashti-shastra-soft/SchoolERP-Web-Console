@@ -1,0 +1,738 @@
+﻿@model SchoolERPWebConsole.Domain.AddTimeTablePageViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Class Time Table";
+    var days = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+    var slotAccents = new[] { "#4361ee", "#7209b7", "#f72585", "#3a86ff", "#fb8500", "#2dc653", "#e63946" };
+
+    // ADD THESE TWO LINES
+    var today = DateTime.Today;
+    var weekStart = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));   // Monday of this week
+}
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+
+        /* ── 3-per-row layout ───────────────────────────── */
+        .tt-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        /* Last row: if fewer than 3, don't stretch to fill */
+        @@media (max-width: 992px) {
+            .tt-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @@media (max-width: 600px) {
+            .tt-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Day card ────────────────────────────────────── */
+        .day-card {
+            display: flex;
+            flex-direction: column;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            border: 1px solid #e9ecef;
+            min-height: 220px;
+        }
+
+        .day-card-header {
+            flex-shrink: 0;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .4px;
+            color: #fff;
+        }
+
+        .slot-count-badge {
+            margin-left: auto;
+            background: rgba(255,255,255,.22);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 20px;
+        }
+
+        /* ── Period list ─────────────────────────────────── */
+        .day-card-body {
+            flex: 1;
+            padding: 10px;
+            background: #f8f9fc;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .period-block {
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px 12px;
+            border-left: 4px solid transparent;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            transition: transform .15s, box-shadow .15s;
+        }
+
+            .period-block:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 3px 10px rgba(0,0,0,.1);
+            }
+
+        .period-subject {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .period-time-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-bottom: 5px;
+        }
+
+        .period-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+
+        /* ── Empty state ─────────────────────────────────── */
+        .day-empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #adb5bd;
+            background: #f8f9fc;
+            padding: 24px 16px;
+            text-align: center;
+        }
+
+            .day-empty i {
+                font-size: 28px;
+            }
+
+            .day-empty span {
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+        /* ── Holiday card ────────────────────────────────── */
+        .holiday-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 20px 16px;
+            text-align: center;
+        }
+
+        .holiday-type-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            color: #fff;
+            display: inline-block;
+        }
+
+        /* ── Day header gradients ────────────────────────── */
+        .day-header-0 {
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        }
+
+        .day-header-1 {
+            background: linear-gradient(135deg, #7209b7, #560bad);
+        }
+
+        .day-header-2 {
+            background: linear-gradient(135deg, #3a86ff, #023e8a);
+        }
+
+        .day-header-3 {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+        }
+
+        .day-header-4 {
+            background: linear-gradient(135deg, #fb8500, #e85d04);
+        }
+
+        .day-header-5 {
+            background: linear-gradient(135deg, #2dc653, #007f5f);
+        }
+
+        .day-header-6 {
+            background: linear-gradient(135deg, #e63946, #9d0208);
+        }
+
+        /* ── Filter badge ────────────────────────────────── */
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #eef2ff;
+            color: #4361ee;
+            border: 1px solid #c7d2fe;
+            border-radius: 20px;
+            padding: 3px 10px;
+        }
+
+            .filter-badge i {
+                font-size: 10px;
+                cursor: pointer;
+            }
+
+                .filter-badge i:hover {
+                    color: #e63946;
+                }
+
+        .filter-dropdown {
+            overflow: visible !important;
+        }
+
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container--open,
+        .select2-dropdown {
+            z-index: 999999 !important;
+        }
+    </style>
+}
+
+<!-- Page Header -->
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+    <div><h6 class="fw-bold mb-0">Class Timetable</h6></div>
+    <div class="d-flex align-items-center flex-wrap gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <a href="/Academics/AddTimeTable" class="btn btn-primary top-btn">
+                <i class="ti ti-plus me-1"></i> Add
+            </a>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+    </div>
+</div>
+
+<!-- Filter bar -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <form id="filterForm" method="post" action="/Academics/ClassTimeTable">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+                        <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                            <i class="fas fa-search search-icon-input"></i>
+                            <input type="text" class="form-control border-0 ps-2 search-input-responsive" id="tableSearch"
+                                   placeholder="Search..." />
+                        </div>
+                        <div class="d-flex align-items-center flex-wrap gap-2 flex-shrink-0">
+
+                            <div class="dropdown">
+                                <a href="#" id="btnFilterToggle"
+                                   class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                                </a>
+
+                                <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl" id="filter-dropdown" style="max-width: calc(100vw - 2rem);">
+
+                                    <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                        <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                        <div class="d-flex align-items-center justify-content-end">
+
+                                            <button type="button" class="btn text-primary"
+                                                    onclick="resetAllFilters()" id="btnResetFilters">
+                                                <i class="ti ti-refresh me-1"></i>Reset
+                                            </button>
+                                            <button type="submit" class="btn text-primary" id="btnApplyFilters">
+                                                <i class="ti ti-filter me-1"></i>Apply
+                                            </button>
+                                            <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none"
+                                                    id="btnCloseFilter" aria-label="Close">
+                                                <i class="ti ti-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="filter-body pb-0">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label mb-1">Class</label>
+                                                <select name="classId" id="FilterClassID" class="form-select form-control select2">
+                                                    <option value="">Select</option>
+                                                    @foreach (var item in Model.Classes)
+                                                    {
+                                                        <option value="@item.ClassID" selected="@(Model.SelectedClassId == item.ClassID)">
+                                                            @item.ClassName
+                                                        </option>
+                                                    }
+                                                </select>
+                                                <div class="invalid-feedback d-none text-danger small mt-1" id="errFilterClassID">Please select a class.</div>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label mb-1">Section</label>
+                                                <select name="sectionId" id="FilterSectionID" class="form-select form-control select2">
+                                                    <option value="">Select</option>
+                                                </select>
+                                                <div class="invalid-feedback d-none text-danger small mt-1" id="errFilterSectionID">Please select a section.</div>
+                                            </div>
+                                            
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>                        
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12" id="activeFilterBadges" style="display:none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     TIMETABLE GRID — 3 DAYS PER ROW, HOLIDAY CARD SUPPORT
+     ════════════════════════════════════════════════════════════ -->
+@if (Model.SelectedClassId > 0)
+{
+    <div class="tt-grid">
+        @for (int di = 0; di < days.Length; di++)
+        {
+            var day = days[di];
+            var dayDate = weekStart.AddDays(di);          // real date of this weekday
+
+            var daySlots = Model.TimeTableSlots
+            .Where(x => x.Day == day)
+            .OrderBy(x => x.StartTime)
+            .ToList();
+
+            // Holiday only if THIS day's date is inside the holiday range
+            var holidaySlot = daySlots.FirstOrDefault(x =>
+            x.IsHoliday
+            && x.FromDate.HasValue && x.ToDate.HasValue
+            && dayDate >= x.FromDate.Value.Date
+            && dayDate <= x.ToDate.Value.Date);
+
+            var hColour = holidaySlot != null && !string.IsNullOrEmpty(holidaySlot.ColourCode)
+            ? holidaySlot.ColourCode
+            : "#e63946";
+            var hBg = hColour + "18";
+
+            // Normal periods only (holiday rows excluded)
+            var normalSlots = daySlots.Where(x => !x.IsHoliday).ToList();
+
+            <div class="day-card">
+
+                <!-- ── Day header ── -->
+                <div class="day-card-header day-header-@di">
+                    <i class="ti ti-calendar-week"></i>
+                    @day
+                    @if (holidaySlot != null)
+                    {
+                        <span class="slot-count-badge" style="background:rgba(255,255,255,.30);">
+                            🎉 Holiday
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="slot-count-badge">
+                            @normalSlots.Count period@(normalSlots.Count != 1 ? "s" : "")
+                        </span>
+                    }
+                </div>
+
+                <!-- ── Holiday banner ── -->
+                @if (holidaySlot != null)
+                {
+                    <div class="holiday-card" style="background:@hBg;">
+                        <i class="ti ti-beach" style="font-size:34px; color:@hColour;"></i>
+
+                        <span style="font-size:14px; font-weight:700; color:@hColour;">
+                            @holidaySlot.HolidayName
+                        </span>
+
+                        @if (!string.IsNullOrEmpty(holidaySlot.HolidayTypeName))
+                        {
+                            <span class="holiday-type-pill" style="background:@hColour;">
+                                @holidaySlot.HolidayTypeName
+                            </span>
+                        }
+
+                        @if (holidaySlot.FromDate.HasValue && holidaySlot.ToDate.HasValue)
+                        {
+                            <span style="font-size:11px; font-weight:500; color:@hColour;">
+                                @holidaySlot.FromDate.Value.ToString("d MMM yyyy")
+                                &nbsp;–&nbsp;
+                                @holidaySlot.ToDate.Value.ToString("d MMM yyyy")
+                            </span>
+                        }
+
+                        @if (holidaySlot.NoOfDays.HasValue && holidaySlot.NoOfDays > 0)
+                        {
+                            <span style="font-size:11px; color:@hColour; opacity:.75;">
+                                @holidaySlot.NoOfDays day@(holidaySlot.NoOfDays != 1 ? "s" : "")
+                            </span>
+                        }
+                    </div>
+                }
+                else if (normalSlots.Any())
+                {
+                    <!-- ── Normal period cards ── -->
+                <div class="day-card-body">
+                    @for (int si = 0; si < normalSlots.Count; si++)
+                    {
+                        var slot = normalSlots[si];
+                        var accent = slotAccents[si % slotAccents.Length];
+                        <div class="period-block" style="border-left-color:@accent;">
+                            
+                                <div class="period-header-row">
+                                    <div class="period-subject">@slot.SubjectName</div>
+                                    <span class="period-time-badge" style="background:@(accent)18; color:@accent;">
+                                        <i class="ti ti-clock" style="font-size:11px;"></i>
+                                        @slot.StartTime – @slot.EndTime
+                                    </span>
+                                </div>
+                                <div class="period-meta-row">
+                                    <i class="ti ti-user"></i>
+                                    <span><strong>Teacher Name:</strong> @slot.StaffName</span>
+                                </div>
+
+                                <div class="period-meta-row">
+                                    <i class="ti ti-building"></i>
+                                    <span><strong>Room No:-</strong> @(slot.RoomNo ?? "-")</span>
+                                </div>
+                            
+                        </div>
+                    }
+                </div>
+                }
+                else
+                {
+
+
+                    <!-- ── No schedule ── -->
+                <div class="day-empty">
+                    <i class="ti ti-calendar-off"></i>
+                    <span>No schedule available</span>
+                </div>
+                }
+
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="card border-0 shadow-sm" style="border-radius:12px;">
+        <div class="card-body text-center py-5">
+            <i class="ti ti-calendar-stats text-muted" style="font-size:48px;"></i>
+            <h6 class="mt-3 fw-semibold text-muted">Select a Class &amp; Section</h6>
+            <p class="text-muted small mb-0">
+                Choose a class and section above, then click Filter to view the timetable.
+            </p>
+        </div>
+    </div>
+}
+
+<!-- ── Hidden DataTable for export/print ──────────────────── -->
+<div class="d-none">
+    <table id="tblTimeTable" class="table">
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Subject</th>
+                <th>Time</th>
+                <th>Teacher</th>
+                <th>Room No</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.SelectedClassId > 0)
+            {
+                foreach (var day in days)
+                {
+                    var slots = Model.TimeTableSlots
+                    .Where(x => x.Day == day && !x.IsHoliday)
+                    .OrderBy(x => x.StartTime);
+
+                    foreach (var slot in slots)
+                    {
+                        <tr>
+                            <td>@day</td>
+                            <td>@slot.SubjectName</td>
+                            <td>@slot.StartTime – @slot.EndTime</td>
+                            <td>@slot.StaffName</td>
+                            <td>@(slot.RoomNo ?? "—")</td>
+                        </tr>
+                    }
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        $('#filter-dropdown').on('click', function (e) { e.stopPropagation(); });
+
+        $('.select2').select2({ width: '100%', dropdownParent: $('#filter-dropdown') });
+
+        function triggerExport(index) {
+            if (@Model.SelectedClassId === 0) {
+                Swal?.fire({ icon: 'warning', title: 'No Data', text: 'Please select a Class and Section first.' });
+                return;
+            }
+            if ($.fn.DataTable.isDataTable('#tblTimeTable')) {
+                $('#tblTimeTable').DataTable().button(index).trigger();
+            }
+        }
+                $('#FilterClassID').on('change', function () {
+            setFieldError('FilterClassID', 'errFilterClassID', false);
+            loadSections($(this).val(), '#FilterSectionID');
+        });
+
+        $(document).on('change', '#FilterSectionID', function () {
+            if ($(this).val()) setFieldError('FilterSectionID', 'errFilterSectionID', false);
+        });
+        $(document).ready(function () {
+            $('.select2').select2({ width: '100%' });
+
+            $('#FilterClassID').on('change', function () {
+                loadSections($(this).val(), '#FilterSectionID');
+            });
+                $('#btnFilterToggle').on('shown.bs.dropdown', function () {
+            var $panel = $('#filter-dropdown');
+
+            $('#FilterClassID').select2({
+                dropdownParent: $('#filter-dropdown'),
+                width: '100%'
+            });
+
+            $('#FilterSectionID').select2({
+                dropdownParent: $('#filter-dropdown'),
+                width: '100%'
+            });
+
+                    $('#filterForm').on('submit', function (e) {
+            if (!validateFilters()) {
+                e.preventDefault();
+            }
+        });
+        });
+            const selectedClassId   = @Model.SelectedClassId;
+            const selectedSectionId = @Model.SelectedSectionId;
+            var companyname = localStorage.getItem("comName");
+            if (selectedClassId > 0) {
+                loadSections(selectedClassId, '#FilterSectionID', selectedSectionId);
+                $('#tblTimeTable').DataTable({
+                    dom: 'Bfrtip',
+                    buttons: [
+                        { extend: 'copy', title: `Class Time Table - ${companyname}`,  exportOptions: { columns: [0,1,2,3,4] } },
+                        { extend: 'csv',  title: `Class Time Table - ${companyname}`,  exportOptions: { columns: [0,1,2,3,4] } },
+                        { extend: 'excel', title: `Class Time Table - ${companyname}`, exportOptions: { columns: [0,1,2,3,4] } },
+                        { extend: 'pdf',   title: `Class Time Table - ${companyname}`, exportOptions: { columns: [0,1,2,3,4] } },
+                        { extend: 'print',  title: `Class Time Table - ${companyname}`,exportOptions: { columns: [0,1,2,3,4] } }
+                    ],
+                    searching: false, paging: false, info: false
+                });
+            }
+
+            renderFilterBadges();
+
+            $('#tableSearch').on('input', function () {
+                const q = $(this).val().toLowerCase().trim();
+                $('.day-card').each(function () {
+                    const blocks = $(this).find('.period-block');
+                    let anyVisible = false;
+                    blocks.each(function () {
+                        const match = $(this).text().toLowerCase().includes(q);
+                        $(this).toggle(match || q === '');
+                        if (match || q === '') anyVisible = true;
+                    });
+                    if (q && !anyVisible && blocks.length > 0) {
+                        $(this).find('.no-match-msg').remove();
+                        $(this).find('.day-card-body').append(
+                            '<div class="text-center text-muted small py-3 no-match-msg">No match</div>'
+                        );
+                    } else {
+                        $(this).find('.no-match-msg').remove();
+                    }
+                });
+                renderFilterBadges();
+            });
+        });
+
+        function renderFilterBadges() {
+            const container     = document.getElementById('badgeContainer');
+            const mainContainer = document.getElementById('activeFilterBadges');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const filters = [
+                { id: 'tableSearch',     label: 'Search',  type: 'text'   },
+                { id: 'FilterClassID',   label: 'Class',   type: 'select' },
+                { id: 'FilterSectionID', label: 'Section', type: 'select' }
+            ];
+
+            let activeCount = 0;
+            filters.forEach(f => {
+                const el = document.getElementById(f.id);
+                if (!el) return;
+                let text = '';
+                if (f.type === 'text' && el.value.trim()) {
+                    text = el.value.trim();
+                } else if (f.type === 'select' && el.value) {
+                    const opt = el.options[el.selectedIndex];
+                    if (opt && opt.value) text = opt.text;
+                }
+                if (text) {
+                    activeCount++;
+                    const badge = document.createElement('span');
+                    badge.className = 'filter-badge';
+                    badge.innerHTML = `${f.label}: <strong>${text}</strong>
+                        <i class="ti ti-x" onclick="removeFilter('${f.id}')"></i>`;
+                    container.appendChild(badge);
+                }
+            });
+
+            mainContainer.style.display = activeCount > 0 ? 'block' : 'none';
+        }
+
+        function removeFilter(filterId) {
+            const el = document.getElementById(filterId);
+            if (!el) return;
+            if (el.tagName === 'INPUT') {
+                el.value = '';
+                $('#tableSearch').trigger('input');
+            } else {
+                el.value = '';
+                if (filterId === 'FilterClassID') {
+                    $('#FilterSectionID').empty().append('<option value="">— Select Section —</option>');
+                }
+                $('#filterForm').submit();
+            }
+            if (window.jQuery && jQuery(el).data('select2')) {
+                jQuery(el).trigger('change.select2');
+            }
+        }
+
+        function resetAllFilters() {
+                 document.getElementById('tableSearch').value  = '';
+        document.getElementById('FilterClassID').value = '';
+        $('#FilterSectionID').empty().append('<option value="">— Select Section —</option>');
+        $('.select2').trigger('change.select2');
+        clearFieldErrors();
+        $('#tableSearch').trigger('input');
+        $('#filterForm').data('skipValidation', true).submit();
+        }
+
+        function loadSections(classId, targetSelector, selectedId = null) {
+            if (!classId) {
+                $(targetSelector).html('<option value="">— Select Section —</option>');
+                return;
+            }
+            $.get('/Academics/GetSectionsByClass/' + classId, function (r) {
+                if (r.success) {
+                    let html = '<option value="">— Select Section —</option>';
+                    r.data.forEach(s => {
+                        const sel = s.sectionID == selectedId ? 'selected' : '';
+                        html += `<option value="${s.sectionID}" ${sel}>${s.sectionName}</option>`;
+                    });
+                    $(targetSelector).html(html);
+                    renderFilterBadges();
+                }
+            });
+        }
+                function setFieldError(fieldId, errId, hasError) {
+            const el = document.getElementById(fieldId);
+            const err = document.getElementById(errId);
+            if (!el || !err) return;
+
+            el.classList.toggle('is-invalid-field', hasError);
+            err.classList.toggle('d-none', !hasError);
+            err.classList.toggle('d-block', hasError);
+        }
+
+        function validateFilters() {
+            const classVal = $('#FilterClassID').val();
+            const sectionVal = $('#FilterSectionID').val();
+
+            const classValid = !!classVal;
+            const sectionValid = !!sectionVal;
+
+            setFieldError('FilterClassID', 'errFilterClassID', !classValid);
+            setFieldError('FilterSectionID', 'errFilterSectionID', !sectionValid);
+
+            return classValid && sectionValid;
+        }
+
+        function clearFieldErrors() {
+            setFieldError('FilterClassID', 'errFilterClassID', false);
+            setFieldError('FilterSectionID', 'errFilterSectionID', false);
+        }
+    </script>
+}

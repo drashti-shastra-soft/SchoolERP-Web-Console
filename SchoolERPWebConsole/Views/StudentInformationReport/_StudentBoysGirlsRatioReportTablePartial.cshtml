@@ -1,0 +1,90 @@
+﻿@model SchoolERPWebConsole.Domain.StudentGenderRatioReportPageViewModel
+@{
+    var p = Model.Permissions;
+}
+
+<div class="card shadow-tbl-outer">
+    <div class="card-body p-2">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="StudentReportTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>S.No.</th>
+                        <th>Class (Section)</th>
+                        <th>Total Boys</th>
+                        <th>Total Girls</th>
+                        <th>Total Students</th>
+                        <th>Boys - Girls Ratio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.StudentLists != null && Model.StudentLists.Any())
+                    {
+                        var startIndex = (Model.PageNumber - 1) * Model.PageSize;
+                        for (int i = 0; i < Model.StudentLists.Count; i++)
+                        {
+                            var s = Model.StudentLists[i];
+                            <tr class="student-row" data-id="@s.ClassID">
+                                <td>@(startIndex + i + 1)</td>
+                                <td>@s.CLASSNAME (@s.SECTIONNAME)</td>
+                                <td>@s.TOTALBOYS</td>
+                                <td>@s.TOTALGIRLS</td>
+                                <td>@s.TOTALSTUDENTS</td>
+                                <td>@s.BOYSGIRLSRATIO</td>                                
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No student records found.</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                    @if (Model.StudentLists != null && Model.StudentLists.Any())
+                    {
+                        var firstRow = Model.StudentLists.First();
+                        <tr>
+                            <td colspan="2" class="text-end">Total:</td>
+                            <td>@firstRow.FOOTER_TOTALBOYS</td>
+                            <td>@firstRow.FOOTER_TOTALGIRLS</td>
+                            <td>@firstRow.FOOTER_TOTALSTUDENTS</td>
+                            <td>@firstRow.FOOTER_BOYSGIRLSRATIO</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="2" class="text-end">Total:</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0:0</td>
+                        </tr>
+                    }
+                </tfoot>
+            </table>
+        </div>
+
+        @{
+            var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize) : 0;
+        }
+        @if (totalPages > 1)
+        {
+            <nav class="mt-2">
+                <ul class="pagination pagination-sm justify-content-end mb-0">
+                    @for (int pg = 1; pg <= totalPages; pg++)
+                    {
+                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                            <a class="page-link"
+                               href="@Url.Action("BoysGirlsRatio", new { pageNumber = pg, pageSize = Model.PageSize, searchTerm = Model.SearchTerm, companyId = Model.CompanyId, sessionId = Model.SessionId, classId = Model.ClassId, sectionId = Model.SectionId })">
+                                @pg
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

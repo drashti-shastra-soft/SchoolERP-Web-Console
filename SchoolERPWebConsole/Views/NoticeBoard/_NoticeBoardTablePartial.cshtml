@@ -1,0 +1,303 @@
+﻿@*
+    ======================================================================
+    PARTIAL: NoticeBoard / _NoticeBoardTablePartial.cshtml
+    PURPOSE: Notice list + pagination (re-rendered by AJAX).
+
+    UI ONLY CHANGE (matches notice-board.html design):
+      - list-group rows  : checkbox + envelope icon + title (+ status switch)
+      - click on title   : opens the right side offcanvas with the details
+      - NO functionality change. NoticeBoard.js still finds everything:
+          .notice-checkbox, .status-switch, rowClick(), toggleStatus(),
+          .page-link inside #NoticeBoardTableContainer,
+          #NoticeBoardTable > tbody > tr.item-row  (kept as a hidden table
+          only to feed the Copy / CSV / Excel / PDF / Print export buttons)
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.NoticeBoardPageViewModel
+@using System.Text.RegularExpressions
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+    // checkbox is only used for Edit / Delete / Active / Inactive -> show it only if the user can do one of them
+    bool canSelect = p.CanEdit || p.CanDelete;
+    bool hasRows = Model.NoticeBoardModel != null && Model.NoticeBoardModel.Any();
+
+    // one place that builds the query string for every pager link
+    string PageUrl(int pg) =>
+        $"?PageNumber={pg}&PageSize={Model.PageSize}" +
+        $"&SearchKeyword={Uri.EscapeDataString(Model.SearchTerm ?? "")}" +
+        $"&CompanyId={Model.CompanyId}&SessionId={Model.SessionId}" +
+        $"&FromDate={Model.FromDate?.ToString("yyyy-MM-dd")}" +
+        $"&ToDate={Model.ToDate?.ToString("yyyy-MM-dd")}" +
+        $"&IsActive={Model.IsActive?.ToString().ToLower()}";
+
+    // plain text of the html message (no tags)
+    string PlainText(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+        var t = Regex.Replace(html, "<.*?>", " ");
+        t = System.Net.WebUtility.HtmlDecode(t);
+        return Regex.Replace(t, @"\s+", " ").Trim();
+    }
+
+    // short preview under the title
+    string Preview(string? html)
+    {
+        var t = PlainText(html);
+        return t.Length > 90 ? t.Substring(0, 90) + "…" : t;
+    }
+
+    // role names come from the SP (RoleNames = "Student, Teacher")
+    IEnumerable<string> RoleNames(object o) =>
+        (o.GetType().GetProperty("RoleNames")?.GetValue(o)?.ToString() ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    // reads an optional property (CreatedByName / CreatedBy) without breaking the build
+    string Prop(object o, string name) => o.GetType().GetProperty(name)?.GetValue(o)?.ToString() ?? "";
+}
+<style>
+    .sidebar {
+        overflow-y: auto !important;
+    }
+
+    .notice-list .list-group-item {
+        padding: .65rem 1rem;
+    }
+
+        .notice-list .list-group-item:hover {
+            background: #f8fafc;
+        }
+
+    .notice-list .notice-title {
+        color: inherit;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+        .notice-list .notice-title:hover {
+            color: var(--bs-primary, #3b82f6);
+        }
+
+    .notice-list .notice-attach {
+        max-width: 140px;
+    }
+</style>
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+
+            <ul class="list-group list-group-flush notice-list">
+                @if (hasRows)
+                {
+                    @foreach (var item in Model.NoticeBoardModel)
+                    {
+                        <li class="list-group-item d-flex align-items-center gap-2"
+                        @Html.Raw(canSelect ? "onclick=\"rowClick(event, this)\" style=\"cursor:pointer;\"" : "")>
+
+                            @if (canSelect)
+                            {
+                                <input type="checkbox"
+                                       class="form-check-input notice-checkbox mt-0"
+                                       value="@item.NoticeBoardId">
+                            }
+
+                            <a href="#noticeOffcanvas-@item.NoticeBoardId"
+                               class="notice-title flex-grow-1 min-w-0"
+                               data-bs-toggle="offcanvas"
+                               role="button"
+                               aria-controls="noticeOffcanvas-@item.NoticeBoardId">
+                                <i class="fa fa-envelope me-1"></i>
+                                <span class="fw-medium">@item.Title</span>
+                                @* <span class="d-block text-muted small text-truncate ms-4">@Preview(item.NoticeMessage)</span> *@
+                            </a>
+
+                            @if (!string.IsNullOrWhiteSpace(item.Attachment))
+                            {
+                                <a href="@item.Attachment" target="_blank" rel="noopener"
+                                   class="notice-attach text-truncate small d-none d-md-inline-block"
+                                   title="@item.AttachmentName">
+                                    <i class="ti ti-paperclip me-1"></i>@(string.IsNullOrWhiteSpace(item.AttachmentName) ? "Download" : item.AttachmentName)
+                                </a>
+                            }
+
+                            <div class="form-check form-switch mb-0 flex-shrink-0" onclick="event.stopPropagation()">
+                                <input class="form-check-input status-switch" type="checkbox"
+                                       onchange="toggleStatus(@item.NoticeBoardId, this.checked, this);"
+                                @(item.IsActive ? "checked" : "")
+                                @(p.CanEdit ? "" : "disabled")>
+                            </div>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li class="list-group-item text-center text-muted py-4">No records found.</li>
+                }
+            </ul>
+
+            <!-- Pagination -->
+            @if (totalPages > 1)
+            {
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 border-top">
+                    <div class="text-muted small">
+                        Showing
+                        <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                        –
+                        <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                        of
+                        <strong>@Model.TotalRecords</strong> notices
+                    </div>
+
+                    <nav aria-label="Notice pagination">
+                        <ul class="pagination pagination-sm mb-0">
+
+                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                <a class="page-link" href="@PageUrl(1)"><i class="ti ti-chevrons-left"></i></a>
+                            </li>
+
+                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                <a class="page-link" href="@PageUrl(Model.PageNumber - 1)"><i class="ti ti-chevron-left"></i></a>
+                            </li>
+
+                            @{
+                                int start = Math.Max(1, Model.PageNumber - 2);
+                                int end = Math.Min(totalPages, start + 4);
+                                start = Math.Max(1, end - 4);
+                            }
+                            @for (int pg = start; pg <= end; pg++)
+                            {
+                                <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                    <a class="page-link" href="@PageUrl(pg)">@pg</a>
+                                </li>
+                            }
+
+                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                <a class="page-link" href="@PageUrl(Model.PageNumber + 1)"><i class="ti ti-chevron-right"></i></a>
+                            </li>
+
+                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                <a class="page-link" href="@PageUrl(totalPages)"><i class="ti ti-chevrons-right"></i></a>
+                            </li>
+
+                        </ul>
+                    </nav>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@* ---------------------------------------------------------------
+   Hidden table - ONLY used by NoticeBoard.js for Copy/CSV/Excel/PDF/Print.
+   Same columns as before (Title, Notice Date, Publish On).
+   --------------------------------------------------------------- *@
+<div class="d-none" aria-hidden="true">
+    <table id="NoticeBoardTable" class="table">
+        <thead>
+            <tr>
+                <th>Select</th>
+                <th>Title</th>
+                <th>Notice Date</th>
+                <th>Publish On</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (hasRows)
+            {
+                @foreach (var item in Model.NoticeBoardModel)
+                {
+                    <tr class="item-row">
+                        <td></td>
+                        <td>@item.Title</td>
+                        <td>@(item.NoticeDate?.ToString("dd MMM yyyy") ?? "-")</td>
+                        <td>@(item.PublishDate?.ToString("dd MMM yyyy") ?? "-")</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@* ---------------------------------------------------------------
+   Right side details (one offcanvas per notice)
+   --------------------------------------------------------------- *@
+@if (hasRows)
+{
+    @foreach (var item in Model.NoticeBoardModel)
+    {
+        var createdByName = Prop(item, "CreatedByName");
+        var createdById = Prop(item, "CreatedBy");
+        var createdBy = string.IsNullOrWhiteSpace(createdByName)
+                        ? (string.IsNullOrWhiteSpace(createdById) ? "-" : createdById)
+                        : (string.IsNullOrWhiteSpace(createdById) ? createdByName : $"{createdByName} ({createdById})");
+        var fullMessage = PlainText(item.NoticeMessage);
+
+        <div id="noticeOffcanvas-@item.NoticeBoardId" class="offcanvas offcanvas-end" tabindex="-1"
+             aria-labelledby="noticeOffcanvasTitle-@item.NoticeBoardId">
+
+            <div class="offcanvas-header justify-content-between align-items-center">
+                <h5 class="offcanvas-title" id="noticeOffcanvasTitle-@item.NoticeBoardId">@item.Title</h5>
+                <button type="button" data-bs-dismiss="offcanvas" class="btn btn-danger btn-sm" aria-label="Close">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+
+            <div class="offcanvas-body">
+
+                <div class="mb-2">
+                    <i class="ti ti-calendar"></i>
+                    <span>Publish Date : @(item.PublishDate?.ToString("dd-MM-yyyy") ?? "-")</span>
+                </div>
+                <div class="mb-2">
+                    <i class="ti ti-calendar"></i>
+                    <span>Notice Date : @(item.NoticeDate?.ToString("dd-MM-yyyy") ?? "-")</span>
+                </div>
+                <div class="mb-2">
+                    <i class="ti ti-user-circle"></i>
+                    <span>Created by : @createdBy</span>
+                </div>
+
+                <hr>
+
+                <h6>Message To</h6>
+                <div>
+                    @{
+                        var roleNames = RoleNames(item).ToList();
+                    }
+                    @if (roleNames.Any())
+                    {
+                        foreach (var rn in roleNames)
+                        {
+                            <span class="d-block"><i class="ti ti-user"></i> @rn</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-muted">-</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(fullMessage))
+                {
+                    <hr>
+                    <h6>Message</h6>
+                    <p class="mb-0" style="white-space:pre-line;">@fullMessage</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(item.Attachment))
+                {
+                    <hr>
+                    <h6>Attachment</h6>
+                    <a href="@item.Attachment" target="_blank" rel="noopener">
+                        <i class="ti ti-paperclip me-1"></i>@(string.IsNullOrWhiteSpace(item.AttachmentName) ? "Download" : item.AttachmentName)
+                    </a>
+                }
+
+            </div>
+        </div>
+    }
+}

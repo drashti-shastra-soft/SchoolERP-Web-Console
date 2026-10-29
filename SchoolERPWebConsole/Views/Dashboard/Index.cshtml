@@ -1,0 +1,551 @@
+@*
+    ======================================================================
+    VIEW: Dashboard / Index.cshtml
+    PURPOSE: User interface rendering for the Dashboard module.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.DashboardPageViewModel
+@using SchoolERPWebConsole.Services
+@inject ILocalizationService Localizer;
+@{
+    ViewData["Title"] = Localizer.GetString("dashboard");
+    var userTypeName = User.FindFirst("UserTypeName")?.Value;
+}
+<style>
+    #enquiry-circle-chart {
+        height: 280px !important;
+        min-height: 280px !important;
+    }
+</style>
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0"> @userTypeName  @Localizer.GetString("dashboard")</h6>
+    </div>
+</div>
+<!-- End Page Header -->
+<!-- start row -->
+<div class="row">
+    @* <div class="col-xl-3 col-md-6">
+        <div class="position-relative border card overflow-hidden rounded-2 shadow-sm mb-2">
+            <img src="~/assets/img/bg/bg-01.svg" alt="img" class="position-absolute start-0 top-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2 justify-content-between mb-3">
+                    <span class="avatar bg-primary rounded-circle"><i class="ti ti-currency-rupee fs-24"></i></span>
+                    <p class="mb-1">0/0</p>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-semibold mb-0 fs-14">@Localizer.GetString("fees_awaiting_payment")</h6>
+                    </div>
+                </div>
+            </div>
+            <a href="#" class="stretched-link"></a>
+        </div>
+    </div> *@
+    <!-- end col -->
+    <div class="col-xl-4 col-md-6">
+        <div class="position-relative border card overflow-hidden rounded-2 shadow-sm mb-2">
+            <img src="~/assets/img/bg/bg-02.svg" alt="img" class="position-absolute start-0 top-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2 justify-content-between mb-3">
+                    <span class="avatar bg-danger rounded-circle"><i class="ti ti-currency-rupee fs-24"></i></span>
+                    <p class="mb-1" id="followup-count">0/0</p>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-semibold mb-0 fs-14">@Localizer.GetString("converted_leads")</h6>
+                    </div>
+                </div>
+            </div>
+            <a href="#" class="stretched-link"></a>
+        </div>
+    </div>
+    <!-- end col -->
+    <div class="col-xl-4 col-md-6">
+        <div class="position-relative border card rounded-2 overflow-hidden shadow-sm mb-2">
+            <img src="~/assets/img/bg/bg-04.svg" alt="img" class="position-absolute start-0 top-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2 justify-content-between mb-3">
+                    <span class="avatar bg-info rounded-circle"><i class="ti ti-users fs-24"></i></span>
+                    <p class="mb-1" id="presentStaffCount">0/0</p>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-semibold mb-0 fs-14">@Localizer.GetString("staff_present_today")</h6>
+                    </div>
+                </div>
+            </div>
+            <a href="#" class="stretched-link"></a>
+        </div>
+    </div>
+    <!-- end col -->
+    <div class="col-xl-4 col-md-6">
+        <div class="position-relative border card rounded-2 overflow-hidden shadow-sm mb-2">
+            <img src="~/assets/img/bg/bg-04.svg" alt="img" class="position-absolute start-0 top-0">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2 justify-content-between mb-3">
+                    <span class="avatar bg-success rounded-circle"><i class="ti ti-calendar-week fs-24"></i></span>
+                    <p class="mb-1" id="presentStudentCount">0/0</p>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-semibold mb-0 fs-14">@Localizer.GetString("student_present_today")</h6>
+                    </div>
+                </div>
+            </div>
+            <a href="#" class="stretched-link"></a>
+        </div>
+    </div>
+
+    <!-- end col -->
+</div>
+<!-- end row -->
+<!-- row start -->
+<div class="row">
+    <!-- col start -->
+    <div class="col-xl-12">
+
+        <!-- card start -->
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="fw-semibold mb-0 fs-14">
+                    Phone Call Log @DateTime.Now.Year
+                </h5>
+                <div class="d-flex gap-3">
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled fs-10 me-1" style="color:#00d4b4"></i> Completed
+                    </p>
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled fs-10 me-1" style="color:#378ADD"></i> Ongoing
+                    </p>
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled fs-10 me-1" style="color:#4B49AC"></i> Rescheduled
+                    </p>
+                </div>
+            </div>
+            <div class="card-body pb-0">
+                <div class="chart-set" id="phonecall-chart"></div>
+            </div>
+        </div>
+        <!-- card end -->
+        <!-- card start -->
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="fw-semibold mb-0 fs-14">Library Budget Overview</h5>
+                <div class="d-flex gap-3">
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled fs-10 me-1" style="color:#6975de"></i>
+                        Budget
+                    </p>
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-success fs-10 me-1"></i>
+                        Total: <span class="fw-semibold ms-1" id="lib-total-count">0</span>
+                    </p>
+                </div>
+            </div>
+            <div class="card-body pb-0">
+                <div class="chart-set" id="library-budget-chart"></div>
+            </div>
+        </div>
+        <!-- card end -->
+
+
+    </div>
+    <!-- col end -->
+    <!-- col start -->
+    @* <div class="col-xl-4">
+        <!-- card start -->
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="fw-semibold mb-0 fs-14"> Income - April 2026 </h5>
+            </div>
+            <div class="card-body" style="height:285px;">
+            </div>
+        </div>
+
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="fw-semibold mb-0 fs-14"> Expense - April 2026 </h5>
+            </div>
+            <div class="card-body" style="height:285px;">
+            </div>
+        </div>
+        <!-- card end -->
+    </div> *@
+    <!-- col end -->
+</div>
+<!-- end row -->
+<!-- start row -->
+<div class="row">
+    <!-- col start -->
+    @* <div class="col-xl-3 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Fees Overview</h6>
+            </div>
+            <div class="card-body">
+                <div id="circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-info fs-10 me-1"></i><span class="text-dark fw-semibold me-1">214</span> Unpaid</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-purple fs-10 me-1"></i><span class="text-dark fw-semibold me-1">150</span> Partial</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-primary fs-10 me-1"></i><span class="text-dark fw-semibold me-1">121</span> Paid</p>
+                </div>
+            </div>
+        </div>
+    </div> *@
+    <!-- col end -->
+    <!-- col start -->
+    @* <div class="col-xl-3 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Enquiry Overview</h6>
+            </div>
+            <div class="card-body">
+                <div id="circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-info fs-10 me-1"></i><span class="text-dark fw-semibold me-1">214</span> Unpaid</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-purple fs-10 me-1"></i><span class="text-dark fw-semibold me-1">150</span> Partial</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-primary fs-10 me-1"></i><span class="text-dark fw-semibold me-1">121</span> Paid</p>
+                </div>
+            </div>
+        </div>
+    </div> *@
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Enquiry Overview</h6>
+            </div>
+
+            <div class="card-body">
+                <div id="enquiry-circle-chart" class="chart-set enquiry-chart"></div>
+
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-info fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="count-new">0</span> New
+                    </p>
+
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-purple fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="count-followup">0</span> Follow Up
+                    </p>
+
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-primary fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="count-converted">0</span> Converted
+                    </p>
+
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-danger fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="count-lost">0</span> Lost
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- col end -->
+    <!-- col start -->
+    @* <div class="col-xl-3 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Library Overview</h6>
+            </div>
+            <div class="card-body">
+                <div id="circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-info fs-10 me-1"></i><span class="text-dark fw-semibold me-1">214</span> Unpaid</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-purple fs-10 me-1"></i><span class="text-dark fw-semibold me-1">150</span> Partial</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-primary fs-10 me-1"></i><span class="text-dark fw-semibold me-1">121</span> Paid</p>
+                </div>
+            </div>
+        </div>
+    </div> *@
+    <!-- col end -->
+    <!-- col start -->
+    @* <div class="col-xl-3 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Student Today Attendance</h6>
+            </div>
+            <div class="card-body">
+                <div id="circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-info fs-10 me-1"></i><span class="text-dark fw-semibold me-1">214</span> Unpaid</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-purple fs-10 me-1"></i><span class="text-dark fw-semibold me-1">150</span> Partial</p>
+                    <p class="d-flex align-items-center mb-0 fs-13"><i class="ti ti-circle-filled text-primary fs-10 me-1"></i><span class="text-dark fw-semibold me-1">121</span> Paid</p>
+                </div>
+            </div>
+        </div>
+    </div> *@
+
+    <!-- Student Today Attendance -->
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Student Today Attendance</h6>
+            </div>
+            <div class="card-body">
+                <div id="student-circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-success fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="student-present-legend">0</span> Present
+                    </p>
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-danger fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="student-absent-legend">0</span> Absent
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Today Attendance -->
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="fw-semibold mb-0 fs-14">Staff Today Attendance</h6>
+            </div>
+            <div class="card-body">
+                <div id="staff-circle-chart" class="chart-set"></div>
+                <div class="d-flex align-items-center flex-wrap justify-content-center gap-2 mt-3">
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-success fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="staff-present-legend">0</span> Present
+                    </p>
+                    <p class="d-flex align-items-center mb-0 fs-13">
+                        <i class="ti ti-circle-filled text-danger fs-10 me-1"></i>
+                        <span class="text-dark fw-semibold me-1" id="staff-absent-legend">0</span> Absent
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- col end -->
+
+
+</div>
+<!-- end row -->
+<!-- start row -->
+@* <div class="row">
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Monthly Fees Collection</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">658</h5>
+                            <span class="badge fw-medium bg-success flex-shrink-0">+95%</span>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-coin-rupee fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Monthly Expenses</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">658</h5>
+                            <span class="badge fw-medium bg-success flex-shrink-0">+95%</span>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-coin-rupee-filled fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 d-flex">
+        <div class="card shadow-sm flex-fill w-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-2">Students</p>
+                        <div class="d-flex align-items-center gap-1">
+                            <h5 class="fw-bold mb-0">658</h5>
+                            <span class="badge fw-medium bg-success flex-shrink-0">+95%</span>
+                        </div>
+                    </div>
+                    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-users fs-20"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- <div class="col-xl-3 d-flex">
+    <div class="card shadow-sm flex-fill w-100">
+    <div class="card-body p-3">
+    <div class="d-flex align-items-center justify-content-between">
+    <div>
+    <p class="mb-2">Admin</p>
+    <div class="d-flex align-items-center gap-1">
+    <h5 class="fw-bold mb-0">658</h5>
+    <span class="badge fw-medium bg-success flex-shrink-0">+95%</span>
+    </div>
+    </div>
+    <span class="avatar border border-primary text-primary rounded-2 flex-shrink-0"><i class="ti ti-coin-rupee fs-20"></i></span>
+    </div>
+    </div>
+    </div>
+    </div> -->
+</div> *@
+<!-- end row -->
+<!-- start row -->
+<div class="row mb-5 pb-4">
+    <!-- Calendar -->
+    <div class="col-xl-12 d-flex">
+        <div class="card shadow-sm w-100 mb-0">
+            <div class="card-body">
+                <div class="datepic mb-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teacher / HR / Admin -->
+    @* <div class="col-xl-3 d-flex flex-column gap-3 mt-3 mt-xl-0">
+
+        <!-- Teacher -->
+        <div class="card flex-fill mb-0">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <p class="mb-1 text-body">Teacher</p>
+                    <h4 class="mb-0 fw-bold">02</h4>
+                </div>
+                <span class="d-inline-flex align-items-center justify-content-center border border-primary text-primary rounded-2 flex-shrink-0"
+                      style="width:40px;height:40px;">
+                    <i class="ti ti-school fs-18"></i>
+                </span>
+            </div>
+        </div>
+
+        <!-- HR -->
+        <div class="card flex-fill mb-0">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <p class="mb-1 text-body">HR</p>
+                    <h4 class="mb-0 fw-bold">01</h4>
+                </div>
+                <span class="d-inline-flex align-items-center justify-content-center border border-success text-success rounded-2 flex-shrink-0"
+                      style="width:40px;height:40px;">
+                    <i class="ti ti-users fs-18"></i>
+                </span>
+            </div>
+        </div>
+
+        <!-- Admin -->
+        <div class="card flex-fill mb-0">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <p class="mb-1 text-body">Admin</p>
+                    <h4 class="mb-0 fw-bold">02</h4>
+                </div>
+                <span class="d-inline-flex align-items-center justify-content-center border border-warning text-warning rounded-2 flex-shrink-0"
+                      style="width:40px;height:40px;">
+                    <i class="ti ti-user-cog fs-18"></i>
+                </span>
+            </div>
+        </div>
+    </div> *@
+</div>
+<!-- end row -->
+@* <div class="row mt-4">
+    <div class="col-xl-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <h4>@Localizer.GetString("welcome_to_the_school_erp_admin_panel")</h4>
+                <p>@Localizer.GetString("all_modules_are_strictly_using_sql_stored_procedures_and_ado_net")</p>
+            </div>
+        </div>
+    </div>
+</div> *@
+
+<!-- Modal -->
+@* <div class="modal fade" id="myModal">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+
+            <div class="modal-body text-center">
+                <h5 class="mb-4">Create a Company</h5>
+                <a href="#" class="btn btn-primary">Go to Company Master</a>
+            </div>
+
+        </div>
+    </div>
+</div> *@
+
+<div class="modal fade" id="myModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-body text-center">
+                <div class="icon-box mb-2 mx-auto">
+                    <i class="ti ti-building text-primary display-6"></i>
+                </div>
+
+                <h4 class="modal-title mb-2" id="createCompanyLabel">Create a Company</h4>
+                <p class="text-muted mb-4">
+                    It looks like no company has been set up yet.
+                    To start using the ERP system, please create and configure your company profile.
+                </p>
+
+                <a href="/Settings/Companies" class="btn btn-primary shadow rounded-pill py-2 px-3 fw-bold">
+                    Go to Company Setup <i class="ti ti-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<style>
+    .custom-modal {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Icon Container */
+    .icon-box {
+        width: 80px;
+        height: 80px;
+        background: #f0f3ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+<script src="@Url.Content("~/assets/js/jquery-3.7.1.min.js")"></script>
+<script src="@Url.Content("~/assets/js/dashboard.js")"></script>
+@section Scripts {
+
+    <script>
+        window.onload = function () {
+            var myModal = new bootstrap.Modal(document.getElementById('myModal'), {
+                backdrop: 'static', // disable outside click close
+                keyboard: false // disable ESC key close
+            });
+
+            if (@ViewBag.totalCompanies == 0)
+            {
+                myModal.show();
+            }
+
+        };
+    </script>
+    <script>
+        $(document).ready(function () {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/Auth/Login';
+            }
+        });
+    </script>
+}

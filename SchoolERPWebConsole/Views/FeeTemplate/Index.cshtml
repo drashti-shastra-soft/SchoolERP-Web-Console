@@ -1,0 +1,280 @@
+﻿@model SchoolERPWebConsole.Domain.FeeTemplatePageViewModel
+@{
+    ViewData["Title"] = "Fee Template - List";
+    Layout = "_Layout"; // adjust to your shared layout
+    var p = Model.Permissions;
+}
+
+@* =========================================================
+   Fee Template - List (server-side paged grid)
+   Data is loaded/refreshed by FeeTemplate.js calling
+   POST /FeeTemplate/GetPageIndex, which renders and returns
+   _FeeTemplateTablePartial.cshtml as HTML.
+
+   Layout mirrors the Fee Head list: toolbar buttons up top,
+   a search box + "Filters" dropdown (Class / Section /
+   Installment / Status), then a checkbox-select table.
+   ========================================================= *@
+
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Fee Template</h6>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <a href="/FeeTemplate/Add" class="btn btn-primary top-btn" id="btnAddNewFT">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEditFT" class="btn btn-info top-btn" disabled onclick="FeeTemplateGrid.editSelected()">
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDeleteFT" class="btn btn-danger top-btn" disabled onclick="FeeTemplateGrid.deleteSelected()">
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActiveFT" class="btn btn-success top-btn" disabled onclick="FeeTemplateGrid.toggleSelectedStatus(true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactiveFT" class="btn btn-danger top-btn" disabled onclick="FeeTemplateGrid.toggleSelectedStatus(false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="FeeTemplateGrid.triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FeeTemplateGrid.triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FeeTemplateGrid.triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FeeTemplateGrid.triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="FeeTemplateGrid.triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="ftPageNotice"></div>
+
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <!-- Search box -->
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               id="fltSearchText"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Class, Section, Admission Type, Remark..." />
+                    </div>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggleFT"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl"
+                             id="ft-filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn text-primary" id="btnResetFiltersFT">
+                                        <i class="ti ti-refresh me-1"></i>Reset
+                                    </button>
+                                    <button type="button" class="btn text-primary" id="btnApplyFiltersFT">
+                                        <i class="ti ti-filter me-1"></i>Apply
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none"
+                                            id="btnCloseFilterFT" aria-label="Close">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="filter-body">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold fs-13">Class</label>
+                                        <select id="fltClass" class="form-select form-select-sm">
+                                            <option value="">All</option>
+                                            @foreach (var c in Model.Classes)
+                                            {
+                                                <option value="@c.ClassID">@c.ClassName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold fs-13">Section</label>
+                                        <select id="fltSection" class="form-select form-select-sm">
+                                            <option value="">All</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold fs-13">Installment</label>
+                                        <select id="fltInstallment" class="form-select form-select-sm">
+                                            <option value="">All</option>
+                                            <!-- STATIC LIST, matches the Add screen -->
+                                            <option value="1">Apr</option>
+                                            <option value="2">May</option>
+                                            <option value="3">Jun</option>
+                                            <option value="4">Jul</option>
+                                            <option value="5">Aug</option>
+                                            <option value="6">Sep</option>
+                                            <option value="7">Oct</option>
+                                            <option value="8">Nov</option>
+                                            <option value="9">Dec</option>
+                                            <option value="10">Jan</option>
+                                            <option value="11">Feb</option>
+                                            <option value="12">Mar</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold fs-13">Status</label>
+                                        <select id="fltIsActive" class="form-select form-select-sm">
+                                            <option value="">All</option>
+                                            <option value="true">Active</option>
+                                            <option value="false">Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold fs-13">Page Size</label>
+                                        <select id="fltPageSize" class="form-select form-select-sm">
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="ftActiveFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="ftBadgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFiltersFT">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ftGridContainer">
+        @await Html.PartialAsync("_FeeTemplateTablePartial", Model)
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .ft-grid-table {
+            margin: 0;
+        }
+
+            .ft-grid-table th, .ft-grid-table td {
+                vertical-align: middle;
+            }
+
+                .ft-grid-table th.sortable {
+                    cursor: pointer;
+                    user-select: none;
+                }
+
+                    .ft-grid-table th.sortable:hover {
+                        text-decoration: underline;
+                    }
+
+            .ft-grid-table tbody tr.item-row:hover {
+                background-color: #f5f8ff;
+            }
+
+            .ft-grid-table tbody tr.item-row.row-selected {
+                background-color: #e7f1ff;
+            }
+
+        .ft-grid-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-top: 1px solid #ddd;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ft-grid-summary {
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        .ft-grid-pager {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ft-grid-page-label {
+            font-size: 0.85rem;
+            padding: 0 6px;
+        }
+
+        .filter-dropdown {
+            min-width: 260px;
+        }
+
+        .filter-header {
+            padding: 10px 14px;
+        }
+
+        .filter-body {
+            padding: 14px;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        window.ftPermissions = {
+            canAdd: @System.Text.Json.JsonSerializer.Serialize(p.CanAdd),
+            canEdit: @System.Text.Json.JsonSerializer.Serialize(p.CanEdit),
+            canDelete: @System.Text.Json.JsonSerializer.Serialize(p.CanDelete),
+            canPrint: @System.Text.Json.JsonSerializer.Serialize(p.CanPrint),
+            canExport: @System.Text.Json.JsonSerializer.Serialize(p.CanExport)
+        };
+    </script>
+    <script src="~/assets/js/FeeTemplate.js"></script>
+}

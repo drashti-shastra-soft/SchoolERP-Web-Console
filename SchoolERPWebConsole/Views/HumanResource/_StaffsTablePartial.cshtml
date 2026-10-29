@@ -1,0 +1,310 @@
+﻿@model SchoolERPWebConsole.Domain.HRStaffPageViewModel
+
+@{
+    int totalPages = Model.PageSize > 0
+        ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+        : 0;
+
+    int currentPage = Math.Max(
+        1,
+        Math.Min(Model.PageNumber, Math.Max(1, totalPages))
+    );
+
+    int start = Math.Max(1, currentPage - 2);
+    int end = Math.Min(totalPages, start + 4);
+    start = Math.Max(1, end - 4);
+
+    var activeCustomFieldsOnTable = Model.CustomFields?
+        .Where(f => f.IsActive && f.OnTable)
+        .OrderBy(f => f.DisplayOrder)
+        .ToList() ?? new List<FieldModel>();
+
+    int colSpanCount = 7 + activeCustomFieldsOnTable.Count;
+}
+
+<div class="col-xl-12">
+
+    <div id="card-view-container"
+         class="row @(Model.ViewType == "card" ? "" : "d-none")">
+
+        @if (Model.StaffList != null && Model.StaffList.Any())
+        {
+            @foreach (var s in Model.StaffList)
+            {
+                <div class="col-xl-3 col-md-4 col-sm-6 mb-3">
+
+                    <div class="card border shadow-sm h-100 staff-card position-relative"
+                         onclick="selectStaffCard(@s.StaffID, this)">
+
+                        <div class="card-body text-center p-3">
+
+                            <div class="position-absolute top-0 start-0 p-2"
+                                 onclick="event.stopPropagation()">
+
+                                <input type="checkbox"
+                                       name="staffSelectCard"
+                                       class="form-check-input student-checkbox"
+                                       value="@s.StaffID"
+                                       id="radCard_@s.StaffID"
+                                       onclick="event.stopPropagation(); selectStaffCard(@s.StaffID, this)">
+                            </div>
+
+                            <a href="/HumanResource/StaffDetails/@s.StaffID"
+                               class="text-primary fw-semibold"
+                               onclick="event.stopPropagation()">
+
+                                <h6 class="mb-0 text-primary text-truncate">
+                                    @s.FirstName @s.LastName
+                                </h6>
+
+                            </a>
+
+                            <small class="text-muted d-block mb-2 text-truncate">
+                                @(s.DesignationName ?? "No Designation")
+                            </small>
+
+                            <div class="d-flex flex-column gap-1 text-start fs-13 mt-2 border-top pt-2">
+
+                                <span class="text-truncate">
+                                    <i class="ti ti-id me-1 text-primary"></i>
+                                    @s.StaffCode
+                                </span>
+
+                                <span class="text-truncate">
+                                    <i class="ti ti-building me-1 text-primary"></i>
+                                    @(s.DepartmentName ?? "N/A")
+                                </span>
+
+                                <span class="text-truncate">
+                                    <i class="ti ti-shield me-1 text-primary"></i>
+
+                                    @if (s.DisplayRoles != null && s.DisplayRoles.Any())
+                                    {
+                                        foreach (var role in s.DisplayRoles)
+                                        {
+                                            <span class="badge bg-soft-primary text-primary me-1">
+                                                @role
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-soft-secondary text-secondary">
+                                            No Role
+                                        </span>
+                                    }
+                                </span>
+
+                                <span class="text-truncate">
+                                    <i class="ti ti-phone me-1 text-primary"></i>
+                                    @(s.MobileNo ?? "N/A")
+                                </span>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12 text-center py-5 text-muted">
+                No staff records found.
+            </div>
+        }
+
+    </div>
+
+    <div id="list-view-container"
+         class="card shadow-tbl @(Model.ViewType == "list" ? "" : "d-none")">
+
+        <div class="card-body">
+
+            <div class="sticky-table">
+                <div class="table-responsive">
+
+                    <table class="table mb-0" id="staffTable">
+
+                        <thead>
+                            <tr class="bg-light">
+                                <th class="ps-4" style="width: 50px;">Select</th>
+                                <th>Staff ID</th>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Department</th>
+                                <th>Designation</th>
+                                <th>Mobile</th>
+
+                                @foreach (var field in activeCustomFieldsOnTable)
+                                {
+                                    <th>@field.FieldName</th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody id="list-tbody">
+
+                            @if (Model.StaffList != null && Model.StaffList.Any())
+                            {
+                                @foreach (var s in Model.StaffList)
+                                {
+                                    <tr class="staff-item-row"
+                                        onclick="selectStaff(@s.StaffID, this)"
+                                        style="cursor: pointer;">
+
+                                        <td class="ps-4 text-center"
+                                            style="vertical-align: middle;">
+
+                                            <div class="d-flex align-items-center justify-content-center"
+                                                 onclick="event.stopPropagation()">
+
+                                                <input type="checkbox"
+                                                       name="staffSelect"
+                                                       class="form-check-input staff-checkbox"
+                                                       value="@s.StaffID"
+                                                       id="staff_@s.StaffID"
+                                                       onclick="selectStaff(@s.StaffID, this)">
+                                            </div>
+
+                                        </td>
+
+                                        <td>@s.StaffCode</td>
+
+                                        <td>
+                                            <a href="/HumanResource/StaffDetails/@s.StaffID"
+                                               class="text-primary"
+                                               onclick="event.stopPropagation()">
+                                                @s.FirstName @s.LastName
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            <span class="badge bg-soft-primary text-primary me-1">
+                                                @(s.RoleName ?? "No Role")
+                                            </span>
+                                        </td>
+
+                                        <td>@(s.DepartmentName ?? "N/A")</td>
+
+                                        <td>@(s.DesignationName ?? "N/A")</td>
+
+                                        <td>@(s.MobileNo ?? "N/A")</td>
+
+                                        @foreach (var field in activeCustomFieldsOnTable)
+                                        {
+                                            var val = s.CustomFieldValues?
+                                            .FirstOrDefault(v => v.FieldID == field.FieldId)?
+                                            .FieldValue ?? "";
+
+                                            <td>@val</td>
+                                        }
+
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="@colSpanCount"
+                                        class="text-center py-4 text-muted">
+                                        No staff records found.
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+                    </table>
+
+                    @if (Model.TotalRecords > 0 && totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3"
+                             id="staffPaginationNav">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((currentPage - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(currentPage * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> staff
+                            </div>
+
+                            <nav aria-label="Staff pagination">
+
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="javascript:void(0)"
+                                           aria-label="First page"
+                                           onclick="if (@currentPage > 1) goToStaffPage(1)">
+
+                                            <i class="ti ti-chevrons-left"></i>
+
+                                        </a>
+                                    </li>
+
+                                    <!-- Previous -->
+                                    <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="javascript:void(0)"
+                                           aria-label="Previous page"
+                                           onclick="if (@currentPage > 1) goToStaffPage(@(currentPage - 1))">
+
+                                            <i class="ti ti-chevron-left"></i>
+
+                                        </a>
+                                    </li>
+
+                                    <!-- Page Numbers -->
+                                    @for (int i = start; i <= end; i++)
+                                    {
+                                        <li class="page-item @(i == currentPage ? "active" : "")">
+                                            <a class="page-link"
+                                               href="javascript:void(0)"
+                                               aria-current="@(i == currentPage ? "page" : null)"
+                                               onclick="goToStaffPage(@i)">
+
+                                                @i
+
+                                            </a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="javascript:void(0)"
+                                           aria-label="Next page"
+                                           onclick="if (@currentPage < @totalPages) goToStaffPage(@(currentPage + 1))">
+
+                                            <i class="ti ti-chevron-right"></i>
+
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="javascript:void(0)"
+                                           aria-label="Last page"
+                                           onclick="if (@currentPage < @totalPages) goToStaffPage(@totalPages)">
+
+                                            <i class="ti ti-chevrons-right"></i>
+
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

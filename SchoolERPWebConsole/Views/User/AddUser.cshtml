@@ -1,0 +1,427 @@
+﻿@model SchoolERPWebConsole.Domain.UsersPageViewModel
+@using System.Security.Claims
+@using SchoolERPWebConsole.Helpers
+@inject PermissionHelper PermHelper
+@{
+    Layout = "_Layout";
+
+    // ===== EDIT MODE: precompute 12-hour dropdown values from TimeSpan? =====
+    int? startHour12 = null, endHour12 = null;
+    string startMinute = null, endMinute = null, startAmPm = null, endAmPm = null;
+
+    if (Model.EditUser?.StartTime != null)
+    {
+        var st = Model.EditUser.StartTime.Value;
+        startAmPm = st.Hours >= 12 ? "PM" : "AM";
+        int h12 = st.Hours % 12; if (h12 == 0) h12 = 12;
+        startHour12 = h12;
+        startMinute = st.Minutes.ToString("D2");
+    }
+    if (Model.EditUser?.EndTime != null)
+    {
+        var et = Model.EditUser.EndTime.Value;
+        endAmPm = et.Hours >= 12 ? "PM" : "AM";
+        int h12 = et.Hours % 12; if (h12 == 0) h12 = 12;
+        endHour12 = h12;
+        endMinute = et.Minutes.ToString("D2");
+    }
+
+    bool isEditMode = Model.EditUser != null;
+}
+
+<link rel="stylesheet" href="~/css/treeview.css" />
+<style>
+    /* ============ Wizard UI ============ */
+    .wizard-steps-indicator {
+        user-select: none;
+    }
+
+    .wizard-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: grey;
+        transition: all 0.3s ease;
+    }
+
+        .wizard-step.active {
+            color: #5e72e4;
+        }
+
+        .wizard-step.completed {
+            color: #22b14c;
+        }
+
+    .step-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        transition: all 0.3s ease;
+    }
+
+    .wizard-step.active .step-num {
+        background: #5e72e4;
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(94, 114, 228, 0.2);
+    }
+
+    .wizard-step.completed .step-num {
+        background: #2dce89;
+        color: #fff;
+    }
+
+    .wizard-step-line {
+        flex: 1;
+        height: 2px;
+        background: #e9ecef;
+        min-width: 30px;
+    }
+
+    .wizard-pane {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+        .wizard-pane.active {
+            display: block;
+        }
+
+    .tree-grid-container {
+        border: 1px solid #e0e0e0 !important;
+    }
+
+    .top-6 {
+        top: 6px;
+    }
+
+    .dt-buttons {
+        display: none !important;
+    }
+    /* Depth-0 highlight for parent nodes */
+    .tree-row.depth-0 {
+        background-color: #f8f9fc;
+    }
+
+        .tree-row.depth-0 .tree-label {
+            font-weight: 500;
+            color: #32325d;
+        }
+
+    .form-check.form-switch {
+        margin-left: 10px;
+    }
+
+    .form-check-input:disabled {
+        background-color: #33333360;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+</style>
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">@(Model.EditUser == null ? "Add User" : "Edit User")</h6>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <div class="ms-auto d-flex gap-2">
+
+            <button type="button" class="btn btn-sm btn-primary shadow-sm top-btn" id="btnWizardNext" onclick="moveWizard(1)">
+                Next <i class="ti ti-arrow-narrow-right ms-1"></i>
+            </button>
+
+            <button type="button" class="btn btn-sm btn-success shadow-sm d-none top-btn" id="btnWizardFinish" onclick="finishWizard()">
+                <i class="ti ti-cloud me-1"></i> Save
+            </button>
+            <a href="/User/Index" id="btnBack" class="btn btn-sm btn-info d-inline-flex align-items-center top-btn">
+                <i class="ti ti-arrow-narrow-left me-1"></i>Back
+            </a>
+            <button type="button" class="btn btn-sm btn-info d-none top-btn" id="btnWizardPrev" onclick="moveWizard(-1)">
+                <i class="ti ti-arrow-narrow-left me-1"></i> Back
+            </button>
+            @* <button class="btn btn-danger" data-bs-dismiss="modal"><i class="ti ti-x me-1"></i> Close</button> *@
+        </div>
+
+    </div>
+</div>
+<!-- End Page Header -->
+
+<form id="userWizardForm">
+    <input type="hidden" id="txtUserId" value="@(Model.EditUser?.UserID ?? 0)">
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card shadow-tbl-outer">
+                <div class="card-header">
+
+                    <ul class="nav nav-pills gap-2">
+                        <li class="nav-item"><a data-step="1" onclick="goToWizardStep(1)" class="nav-link active">Identity</a></li>
+                        <li class="nav-item"><a data-step="2" onclick="goToWizardStep(2)" class="nav-link">Companies</a></li>
+                        <li class="nav-item"><a data-step="3" onclick="goToWizardStep(3)" class="nav-link">Permissions</a></li>
+                    </ul>
+
+                </div>
+
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- STEP 1: IDENTITY -->
+                        <div class="wizard-pane active" id="step1">
+                            <div class="row">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">User Name <span class="text-danger">*</span></label>
+                                        <div class="mb-3">
+                                            <input type="text" class="form-control" id="txtUsername" value="@Model.EditUser?.Username" placeholder="" required>
+                                            <div class="invalid-feedback" id="errTxtUsername"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 @(isEditMode ? "d-none" : "")" id="passwordGroup">
+                                        <label class="form-label" id="passwordLabel">Password <span class="text-danger">*</span></label>
+                                        <div class="mb-3 position-relative">
+                                            <input type="password" class="form-control" id="txtPassword" placeholder="">
+                                            <div class="invalid-feedback" id="errTxtPassword"></div>
+                                            <button class="btn position-absolute end-0 top-6" type="button" id="btnTogglePassword">
+                                                <i class="fas fa-eye fs-14 text-muted small"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted d-none" id="passwordNote">Leave blank to keep existing.</small>
+                                    </div>
+                                    <div class="col-md-4 @(isEditMode ? "d-none" : "")" id="confirmPasswordGroup">
+                                        <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                                        <div class="mb-3 position-relative">
+                                            <input type="password" class="form-control" id="txtConfirmPassword" placeholder="">
+                                            <div class="invalid-feedback" id="errTxtConfirmPassword"></div>
+                                            <button class="btn position-absolute end-0 top-6" type="button" id="btnTogglePassword2">
+                                                <i class="fas fa-eye fs-14 text-muted small"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted d-none" id="passwordNote2">Leave blank to keep existing.</small>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="txtFullName" value="@Model.EditUser?.FullName" placeholder="" required>
+                                        <div class="invalid-feedback" id="errTxtFullName"></div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="txtEmail" value="@Model.EditUser?.Email" placeholder="">
+                                        <div class="invalid-feedback" id="errTxtEmail"></div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">User Type <span class="text-danger">*</span></label>
+                                        <select class="form-select form-control searchable-select" id="ddlUserTypeID" required>
+                                            <option value="">Select</option>
+                                            @foreach (var ut in Model.UserTypes)
+                                            {
+                                                <option value="@ut.UserTypeID" selected="@(Model.EditUser != null && ut.UserTypeID == Model.EditUser.UserTypeID)">@ut.TypeName</option>
+                                            }
+                                        </select>
+                                        <div class="invalid-feedback" id="errDdlUserTypeID"></div>
+                                    </div>
+
+
+
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Phone Number <span class="text-danger" id="reqPhoneNo">*</span></label>
+                                        <input type="text" class="form-control" id="txtPhoneNo" value="@Model.EditUser?.PhoneNo" placeholder="" inputmode="numeric" maxlength="10">
+                                        <div class="invalid-feedback" id="errTxtPhoneNo"></div>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Back Days Allow</label>
+                                        <input type="number" class="form-control" id="txtBackDaysAllow" value="@(Model.EditUser?.BackDaysAllow ?? 0)" min="0">
+                                        <div class="invalid-feedback" id="errTxtBackDaysAllow"></div>
+                                    </div>
+
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label">Start Date</label>
+                                        <input type="date" class="form-control" id="txtStartDate" value="@(Model.EditUser?.StartDate?.ToString("yyyy-MM-dd"))">
+                                        <div class="invalid-feedback" id="errTxtStartDate"></div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label">End Date</label>
+                                        <input type="date" class="form-control" id="txtEndDate" value="@(Model.EditUser?.EndDate?.ToString("yyyy-MM-dd"))">
+                                        <div class="invalid-feedback" id="errTxtEndDate"></div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Start Time</label>
+                                        <div class="d-flex gap-2">
+                                            <select class="form-select form-control" id="ddlStartHour" onchange="syncTimeHidden('Start')">
+                                                <option value="">HH</option>
+                                                @for (int h = 1; h <= 12; h++)
+                                                {
+                                                    <option value="@h" selected="@(startHour12 == h)">@h</option>
+                                                }
+                                            </select>
+                                            <select class="form-select form-control" id="ddlStartMinute" onchange="syncTimeHidden('Start')">
+                                                <option value="">MM</option>
+                                                @foreach (var mm in new[] { "00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55" })
+                                                {
+                                                    <option value="@mm" selected="@(startMinute == mm)">@mm</option>
+                                                }
+                                            </select>
+                                            <select class="form-select form-control" id="ddlStartAmPm" onchange="syncTimeHidden('Start')">
+                                                <option value="">AM/PM</option>
+                                                <option value="AM" selected="@(startAmPm == "AM")">AM</option>
+                                                <option value="PM" selected="@(startAmPm == "PM")">PM</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" id="txtStartTime" value="">
+                                        <div class="invalid-feedback d-block" id="errTxtStartTime"></div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">End Time</label>
+                                        <div class="d-flex gap-2">
+                                            <select class="form-select form-control" id="ddlEndHour" onchange="syncTimeHidden('End')">
+                                                <option value="">HH</option>
+                                                @for (int h = 1; h <= 12; h++)
+                                                {
+                                                    <option value="@h" selected="@(endHour12 == h)">@h</option>
+                                                }
+                                            </select>
+                                            <select class="form-select form-control" id="ddlEndMinute" onchange="syncTimeHidden('End')">
+                                                <option value="">MM</option>
+                                                @foreach (var mm in new[] { "00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55" })
+                                                {
+                                                    <option value="@mm" selected="@(endMinute == mm)">@mm</option>
+                                                }
+                                            </select>
+                                            <select class="form-select form-control" id="ddlEndAmPm" onchange="syncTimeHidden('End')">
+                                                <option value="">AM/PM</option>
+                                                <option value="AM" selected="@(endAmPm == "AM")">AM</option>
+                                                <option value="PM" selected="@(endAmPm == "PM")">PM</option>
+                                            </select>
+                                        </div>
+                                        <input type="hidden" id="txtEndTime" value="">
+                                        <div class="invalid-feedback d-block" id="errTxtEndTime"></div>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="chkIsOTPEnabled" checked="@(Model.EditUser?.IsOTPEnabled == true)">
+                                            <label class="form-check-label ms-2 fw-semibold" for="chkIsOTPEnabled">Login with OTP</label>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                        <!-- STEP 2: COMPANY ASSIGNMENT -->
+                        <div class="wizard-pane" id="step2">
+                            <div class="row">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h6 class="text-uppercase text-muted text-xxs font-weight-bolder mb-0">
+                                        <i class="fas fa-building me-1"></i> Company/School Assignment
+                                    </h6>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="chkAllCompanies" onchange="toggleAllCompanies(this.checked)">
+                                        <label class="form-check-label text-xs fw-bold" for="chkAllCompanies">Select All</label>
+                                    </div>
+                                </div>
+                                <div class="company-list border rounded p-3 bg-white shadow-sm" style="max-height: 400px; overflow-y: auto;" id="companyAssignmentList">
+                                    <!-- Loaded via JS -->
+                                    <div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading companies...</div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- STEP 3: ROLES & PERMISSIONS -->
+                        <div class="wizard-pane" id="step3">
+                            <div class="row">
+                                <div class="d-flex h-100">
+                                    <!-- Left Sidebar: Roles -->
+                                    <div class="role-sidebar border-end" style="width: 280px; display: flex; flex-direction: column;">
+                                        <div class="p-3 border-bottom bg-white d-none">
+                                            <h6 class="text-dark mb-2 small">
+                                                <i class="fas fa-shield-alt me-1"></i> Assign Roles
+                                            </h6>
+                                            <div class="position-relative mb-2">
+                                                <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.75rem;"></i>
+                                                <input type="text" class="form-control form-control-sm ps-4" id="txtRoleSearch" placeholder="Search roles...">
+                                            </div>
+                                            <button type="button" class="btn btn-xxs btn-light w-100 text-start d-none align-items-center justify-content-between px-2 py-1 border shadow-sm"
+                                                    id="btnEffectiveView" onclick="showEffectivePermissions()">
+                                                <span class="x-small fw-bold"><i class="fas fa-layer-group me-1 text-primary"></i> Combined View</span>
+                                                <i class="fas fa-check text-success x-small d-none" id="iconEffectiveActive"></i>
+                                            </button>
+                                        </div>
+                                        <div class="flex-grow-1 overflow-auto p-3" id="roleSelectorList">
+                                            @foreach (var role in Model.Roles)
+                                            {
+                                                <div class="role-item-card p-2 mb-2 rounded bg-white border d-flex align-items-center justify-content-between"
+                                                     data-role-id="@role.RoleID"
+                                                     data-role-name="@role.RoleName.ToLower()"
+                                                     onclick="highlightRole(this, @role.RoleID)">
+                                                    <div class="d-flex align-items-center gap-0 overflow-hidden">
+                                                        <div class="form-check mb-0 ms-1">
+                                                            <input class="form-check-input role-checkbox" type="checkbox" id="role_@role.RoleID" value="@role.RoleID" onclick="event.stopPropagation(); toggleRoleCheck(@role.RoleID)">
+                                                        </div>
+                                                        <span class="text-truncate small fw-bold text-dark">@role.RoleName</span>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Right Panel: Permissions -->
+                                    <div class="flex-grow-1 d-flex flex-column bg-white overflow-hidden">
+                                        <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-white shadow-sm" style="z-index: 5;">
+                                            <div>
+                                                <h6 class="text-dark mb-2 small">
+                                                    <i class="fas fa-key me-1 text-primary"></i> <span id="permissionViewTitle">Effective Permissions</span>
+                                                </h6>
+                                                <p class="text-muted x-small mb-0" id="permissionViewDesc">Showing combined result of all selected roles.</p>
+                                            </div>
+                                        </div>
+                                        <div class="permission-tree-container flex-grow-1 overflow-auto p-3">
+                                            <div class="tree-grid-container" style="border: none; border-radius: 0; max-height: none;">
+                                                <table class="tree-grid" id="userPermissionTable">
+                                                    <thead>
+                                                        <tr id="userTreeHeaderRow">
+                                                            <th class="id-column">ID</th>
+                                                            <th>Menu Name</th>
+                                                            <!-- Dynamic columns -->
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="userTreeGridBody">
+                                                        <tr>
+                                                            <td colspan="10" class="text-center py-5 text-muted">
+                                                                <i class="fas fa-spinner fa-spin me-2"></i>Loading details...
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</form>
+
+
+@section Scripts {
+    <script src="~/assets/js/user-wizard.js"></script>
+}

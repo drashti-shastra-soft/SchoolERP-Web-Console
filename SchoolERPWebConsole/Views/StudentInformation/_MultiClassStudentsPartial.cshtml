@@ -1,0 +1,135 @@
+﻿@model MultiClassStudentsPageViewModel
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+
+@if (Model.Students == null || !Model.Students.Any())
+{
+    <div class="col-12 text-center py-5 text-muted">
+        <i class="ti ti-info-circle fs-2 d-block mb-2"></i>
+        No students found.
+    </div>
+}
+else
+{
+    @foreach (var s in Model.Students)
+    {
+        <div class="col-xl-6 mb-3 student-card-item">
+            <div class="card shadow-tbl h-100" id="studentCard_@s.StudentID">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light-subtle">
+                    <div>
+                        <h6 class="card-title mb-0 fs-12">@s.FullName (@(string.IsNullOrEmpty(s.RollNo) ? "No Roll No" : s.RollNo))</h6>
+                        @* <small class="text-muted">Primary: @s.PrimaryClassName - @s.PrimarySectionName</small> *@
+                    </div>
+                    <div>
+                        @if (Model.CanAdd)
+                        {
+                            <button class="btn btn-light btn-sm" onclick="addMultiClassRow(@s.StudentID)" title="Add class row">
+                                <i class="ti ti-plus"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="multiClassRows_@s.StudentID" class="multi-class-list">
+                        @foreach (var ac in s.AdditionalClasses)
+                        {
+                            <div class="multi-class-row p-3 border-bottom" id="row_@ac.MultiClassID" data-multiclass-id="@ac.MultiClassID">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label mb-1 fs-12">Class</label>
+                                        <select class="form-select form-select-sm ddl-class" onchange="handleClassChange(this, 'row_@ac.MultiClassID')">
+                                            <option value="">Select Class</option>
+                                            @foreach (var c in Model.Classes)
+                                            {
+                                                <option value="@c.ClassID" selected="@(c.ClassID == ac.ClassID)">@c.ClassName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1 fs-12">Section</label>
+                                        <select class="form-select form-select-sm ddl-section">
+                                            <option value="@ac.SectionID" selected>@ac.SectionName</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        @if (Model.CanDelete)
+                                        {
+                                            <button class="btn btn-danger w-100" onclick="removeMultiClassRow('row_@ac.MultiClassID', @ac.MultiClassID, @s.StudentID)">
+                                                <i class="ti ti-trash me-1"></i>Remove
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                @if (Model.CanAdd || Model.CanEdit)
+                {
+                    <div class="card-footer text-end bg-white">
+                        <button class="btn btn-primary" onclick="updateStudentMultiClasses(@s.StudentID)">
+                            Update
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (totalPages > 1)
+    {
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2 mb-3">
+                <div class="text-muted small">
+                    Showing
+                    <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                    –
+                    <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                    of
+                    <strong>@Model.TotalRecords</strong> students
+                </div>
+
+                <nav aria-label="Student pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                            <a class="page-link" href="?page=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                <i class="ti ti-chevrons-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                <i class="ti ti-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        @{
+                            int start = Math.Max(1, Model.PageNumber - 2);
+                            int end = Math.Min(totalPages, start + 4);
+                            start = Math.Max(1, end - 4);
+                        }
+                        @for (int pg = start; pg <= end; pg++)
+                        {
+                            <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                <a class="page-link" href="?page=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">@pg</a>
+                            </li>
+                        }
+
+                        <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                            <a class="page-link" href="?page=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                <i class="ti ti-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                            <a class="page-link" href="?page=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&classId=@Model.SelectedClassId&sectionId=@Model.SelectedSectionId">
+                                <i class="ti ti-chevrons-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    }
+}

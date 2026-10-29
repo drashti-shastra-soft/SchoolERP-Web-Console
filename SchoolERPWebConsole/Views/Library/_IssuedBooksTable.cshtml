@@ -1,0 +1,126 @@
+﻿@model IssuePageViewModel
+
+@{
+    int totalPages = Model.PageSize > 0
+        ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+        : 0;
+}
+
+<div class="card shadow-tbl">
+    <div class="card-header">
+        <h6 class="mb-0">Book Issued</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table mb-0" id="tblIssuebook">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Book Title</th>
+                        <th>Book No</th>
+                        <th>Issue Date</th>
+                        <th>Due Return Date</th>
+                        <th>Return Date</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="issuedBooksTableBody">
+                    @if (Model.IssueReturn != null && Model.IssueReturn.Any())
+                    {
+                        int index = 1;
+                        @foreach (var c in Model.IssueReturn)
+                        {
+                            <tr class="item-row" onclick="selectItem(@c.IssueReturnID, this)" style="cursor: pointer;">
+                                <td>@index</td>
+                                <td>@c.BookTitle</td>
+                                <td>@c.BookNo</td>
+                                <td>@c.IssueDate.ToString("dd MMM yyyy")</td>
+                                <td>@c.DueReturnDate.ToString("dd MMM yyyy")</td>
+                                <td>@c.ReturnDate?.ToString("dd MMM yyyy")</td>
+                                <td>
+                                    @if (c.Status == 2)
+                                    {
+                                        <span class="badge bg-success">Returned</span>
+                                    }
+                                    else
+                                    {
+                                        <a href="/Library/AddIssueBookReturn?issueReturnID=@c.IssueReturnID&libraryMemberID=@Model.LibraryMemberID"
+                                           class="btn btn-sm btn-outline-apply">
+                                            Return
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                            index++;
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <span class="text-muted">No records found.</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (totalPages > 1)
+            {
+                <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                    <div class="text-muted small">
+                        Showing
+                        <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                        –
+                        <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                        of
+                        <strong>@Model.TotalRecords</strong> records
+                    </div>
+
+                    <nav aria-label="Issue book pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                <a class="page-link"
+                                   href="?id=@Model.LibraryMemberID&pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                    <i class="ti ti-chevrons-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                <a class="page-link"
+                                   href="?id=@Model.LibraryMemberID&pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                    <i class="ti ti-chevron-left"></i>
+                                </a>
+                            </li>
+
+                            @{
+                                int start = Math.Max(1, Model.PageNumber - 2);
+                                int end = Math.Min(totalPages, start + 4);
+                                start = Math.Max(1, end - 4);
+                            }
+                            @for (int pg = start; pg <= end; pg++)
+                            {
+                                <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                    <a class="page-link"
+                                       href="?id=@Model.LibraryMemberID&pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">@pg</a>
+                                </li>
+                            }
+
+                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                <a class="page-link"
+                                   href="?id=@Model.LibraryMemberID&pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                    <i class="ti ti-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                <a class="page-link"
+                                   href="?id=@Model.LibraryMemberID&pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId">
+                                    <i class="ti ti-chevrons-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    </div>
+</div>

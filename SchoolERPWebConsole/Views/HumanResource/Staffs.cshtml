@@ -1,0 +1,177 @@
+@model SchoolERPWebConsole.Domain.HRStaffPageViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Staff Directory";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+}
+
+<style>
+    .dt-buttons {
+        display: none !important;
+    }
+</style>
+
+<!-- Page Header -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Staff Directory</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (p.CanAdd)
+        {
+            <a asp-action="AddStaff" class="btn btn-primary top-btn">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button type="button" id="btnTopEdit" class="btn btn-info top-btn" onclick="handleEdit()" disabled>
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button type="button" id="btnTopDelete" class="btn btn-danger top-btn" onclick="deleteSelected()" disabled>
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanAdd)
+        {
+            <a asp-action="ImportStaff" class="btn btn-warning top-btn">
+                <i class="ti ti-file-import me-1"></i>Import Staff
+            </a>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <!-- No longer a submitting <form> — filters trigger AJAX via Staffs.js -->
+                <input type="hidden" id="hdnViewType" value="@Model.ViewType" />
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearch"
+                               placeholder="Search by name or code..." value="@Model.SearchTerm" style="min-width: 220px;">
+                    </div>
+                    <div class="d-flex align-items-center flex-wrap gap-2 flex-shrink-0">
+                        <div class="dropdown">
+                            <a href="#" class="btn btn-white border btn-lg" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                            </a>
+                            <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0">
+                                <div class="d-flex align-items-center justify-content-between border-bottom filter-header py-2">
+                                    <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                    <button type="button" id="btnApplyFilters" class="btn text-primary fs-6">Apply</button>
+                                </div>
+                                <div class="p-3">
+                                    <div class="mb-2">
+                                        <label class="form-label mb-1">Role</label>
+                                        <select id="fltRole" class="form-select select2">
+                                            <option value="">All Roles</option>
+                                            @foreach (var r in Model.Roles)
+                                            {
+                                                <option value="@r.RoleID" selected="@(Model.SelectedRoleID == r.RoleID)">@r.RoleName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label mb-1">Department</label>
+                                        <select id="fltDept" class="form-select select2">
+                                            <option value="">All Departments</option>
+                                            @foreach (var d in Model.Departments)
+                                            {
+                                                <option value="@d.DepartmentID" selected="@(Model.SelectedDepartmentID == d.DepartmentID)">@d.DepartmentName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label mb-1">Designation</label>
+                                        <select id="fltDesig" class="form-select select2">
+                                            <option value="">All Designations</option>
+                                            @foreach (var d in Model.Designations)
+                                            {
+                                                <option value="@d.HRDesignationID" selected="@(Model.SelectedDesignationID == d.HRDesignationID)">@d.DesignationName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-muted rounded px-1 py-1 d-flex gap-1">
+                            <button type="button" onclick="switchView('list')" id="btn-list-view" class="btn btn-sm rounded @(Model.ViewType == "list" ? "btn-primary" : "btn-white border")">
+                                <i class="ti ti-list fs-14"></i>
+                            </button>
+                            <button type="button" onclick="switchView('card')" id="btn-card-view" class="btn btn-sm rounded @(Model.ViewType == "card" ? "btn-primary" : "btn-white border")">
+                                <i class="ti ti-layout-grid fs-14"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2"><i class="ti ti-filter-check me-1"></i>Active Filters:</span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none" id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server-rendered on first load; AJAX-swapped by Staffs.js afterwards -->
+    <div class="col-12" id="staffContainer">
+        @await Html.PartialAsync("_StaffsTablePartial", Model)
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/assets/js/Staffs.js"></script>
+    <script>
+        // One-time bootstrap: hand the server-rendered initial state to the external JS module
+        $(function () {
+            StaffsDirectory.init({
+                companyId:  0,
+                initialViewType: '@Model.ViewType',
+                initialSearch: @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.SearchTerm ?? "")),
+                initialRoleId: @(Model.SelectedRoleID?.ToString() ?? "null"),
+                initialDeptId: @(Model.SelectedDepartmentID?.ToString() ?? "null"),
+                initialDesigId: @(Model.SelectedDesignationID?.ToString() ?? "null"),
+                initialPage: @Model.PageNumber
+            });
+        });
+    </script>
+}

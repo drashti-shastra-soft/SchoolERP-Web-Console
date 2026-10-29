@@ -1,0 +1,161 @@
+﻿@*
+    ======================================================================
+    PARTIAL: Accounts / VoucherTypeFieldOption / _VoucherTypeFieldOptionTablePartial.cshtml
+    PURPOSE: Renders the Voucher Type Field Option grid + pagination.
+             Reloaded via AJAX by loadVoucherTypeFieldOptionPartial() in
+             VoucherTypeFieldOption.js on search / filter / page change.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.VoucherHeaderPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize) : 0;
+}
+
+<style>
+    .sidebar {
+        overflow-y: auto !important;
+    }
+
+    #disableReasonTableContainer {
+        overflow: hidden;
+    }
+
+    .sticky-table {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+
+        .sticky-table table {
+            width: 100%;
+        }
+</style>
+
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                @* <div class="table-responsive"> *@
+                <table class="table" id="VoucherTypeFieldOptionTable">
+                    <thead>
+                        <tr class="bg-light">
+                            <th style="width:26px;"></th>
+                            <th>Voucher Type</th>
+                            <th>Voucher No</th>
+                            <th>VNo</th>
+                            <th>Voucher Date</th>
+                            <th>Total Amount</th>
+                            <th>Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.VoucherHeader != null && Model.VoucherHeader.Count > 0)
+                        {
+                            @foreach (var item in Model.VoucherHeader)
+                            {
+                                <tr class="item-row" onclick="selectItem(@item.VoucherHeaderID, this)" style="cursor: pointer;">
+                                    <td class="ps-3" onclick="event.stopPropagation()">
+                                        <input type="checkbox" name="selectedVoucherTypeFieldOption"
+                                               class="form-check-input student-checkbox"
+                                               value="@item.VoucherHeaderID"
+                                               onchange="selectItem(@item.VoucherHeaderID, this.closest('tr'))">
+                                    </td>
+                                    <td>@item.VoucherType</td>
+                                    <td>@item.VoucherNo</td>
+                                    <td><code>@item.VNo</code></td>
+                                    <td>@item.VoucherDate?.ToString("dd-MMM-yyyy")</td>
+                                    <td>
+                                        @item.TotalAmount?.ToString("N2")
+                                    </td>
+                                    <td onclick="event.stopPropagation()">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox"
+                                                   onchange="toggleStatus(@item.VoucherHeaderID,this.checked,this);"
+                                                   @(item.IsActive ? "checked" : "")
+                                                   @(p.CanEdit ? "" : "disabled")>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <span class="text-muted">No records found.</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                @if (totalPages > 1)
+                {
+                    <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+                        <div class="text-muted small">
+                            Showing
+                            <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                            &ndash;
+                            <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                            of
+                            <strong>@Model.TotalRecords</strong> options
+                        </div>
+
+                        <nav aria-label="Voucher type field option pagination">
+                            <ul class="pagination pagination-sm mb-0">
+
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm">
+                                        <i class="ti ti-chevrons-left"></i>
+                                    </a>
+                                </li>
+
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm">
+                                        <i class="ti ti-chevron-left"></i>
+                                    </a>
+                                </li>
+
+                                @{
+                                    int start = Math.Max(1, Model.PageNumber - 2);
+                                    int end = Math.Min(totalPages, start + 4);
+                                    start = Math.Max(1, end - 4);
+                                }
+                                @for (int pg = start; pg <= end; pg++)
+                                {
+                                    <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm">@pg</a>
+                                    </li>
+                                }
+
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm">
+                                        <i class="ti ti-chevron-right"></i>
+                                    </a>
+                                </li>
+
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm">
+                                        <i class="ti ti-chevrons-right"></i>
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nav>
+
+                    </div>
+                }
+                @* </div> *@
+            </div>
+        </div>
+    </div>
+</div>

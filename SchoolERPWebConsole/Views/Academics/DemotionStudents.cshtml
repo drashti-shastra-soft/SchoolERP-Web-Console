@@ -1,0 +1,157 @@
+﻿@model SchoolERPWebConsole.Domain.DemotionStudentsPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Demotion Students";
+    var currentUserId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("UserId")?.Value, out var id) ? id : 0;
+    var p = Model.Permissions;
+}
+<style>
+    .promot-student {
+        display: flex;
+        gap: 0.25rem;
+    }
+</style>
+<!-- Page Header -->
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Demotion Students</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1 responsive-btn-group">
+        <button class="btn btn-success" id="btnSave" disabled onclick="confirmDemotion()"><i class="ti ti-cloud me-1"></i> Save</button>
+    </div>
+</div>
+
+<!-- End Page Header -->
+<!-- start row -->
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <!-- ── Search box (name="search" so form submits it) ── -->
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               name="search"
+                               id="txtSearchInput"
+                               value="@Model?.SearchTerm"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Search by class, section..." />
+                    </div>
+
+                    <!-- Hidden form for filter submission — outside Bootstrap dropdown -->
+                    <form method="get" asp-action="DemotionStudents" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="pageIndex" id="hdnPageIndex" value="1" />
+                        <input type="hidden" name="search" id="hdnSearch" value="@Model?.SearchTerm" />
+                        <input type="hidden" name="sessionID" id="hdnSessionID" value="" />
+                        <input type="hidden" name="companyId" id="hdnCompanyId" value="" />
+                        <input type="hidden" name="sectionID" id="hdnSectionID" value="" />
+                        <input type="hidden" name="classId" id="hdnclassId" value="" />
+                        <input type="hidden" name="pageSize" id="hdnPageSize" value="@Model?.PageSize" />
+                    </form>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggle"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl"
+                             id="filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn text-primary"
+                                            onclick="resetAllFilters()" id="btnResetFilters">
+                                        <i class="ti ti-refresh me-1"></i>Reset
+                                    </button>
+                                    <button type="submit" class="btn text-primary" id="btnApplyFilters">
+                                        <i class="ti ti-filter me-1"></i>Apply
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none"
+                                            id="btnCloseFilter" aria-label="Close">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+
+                                </div>
+                            </div>
+
+                            <div class="filter-body pb-0">
+                                <div class="row">
+
+                                    @await Html.PartialAsync("_CompanySessionFilter", new CompanySessionFilterViewModel
+                               {
+                                   Companies = Model.Companies,
+                                   Sessions = Model.Sessions,
+                                   CompanyId = Model.CompanyId,
+                                   SessionId = Model.SessionId
+                               })
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label mb-1">Class<span class="text-danger">*</span></label>
+                                        <select name="classId" id="FilterClassID" class="form-select form-control" onchange="onFilterClassChange()" required>
+                                            <option value="">Select</option>
+                                            @foreach (var c in Model?.Classes)
+                                            {
+                                                <option value="@c.ClassID" selected="@(Model?.SelectedClassId == c.ClassID)">@c.ClassName</option>
+                                            }
+                                        </select>
+                                        <div class="invalid-feedback d-none text-danger small mt-1" id="errFilterClassID">Please select a class.</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label mb-1">Section<span class="text-danger">*</span></label>
+                                        <select name="sectionId" id="FilterSectionID" class="form-select form-control" required>
+                                            <option value="">Select</option>
+                                        </select>
+                                        <div class="invalid-feedback d-none text-danger small mt-1" id="errFilterSectionID">Please select a section.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2"><i class="ti ti-filter-check me-1"></i>Active Filters:</span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none" id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive" id="studentsTableContainer">
+        @await Html.PartialAsync("_DemotionStudentsTable", Model)
+    </div>
+
+</div>
+
+
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+
+        .is-invalid-field .select2-selection,
+        select.is-invalid-field {
+            border: 1px solid var(--bs-danger, #dc3545) !important;
+            border-radius: 4px;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="~/assets/js/DemotionStudents.js"></script>
+}

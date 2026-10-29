@@ -1,0 +1,46 @@
+﻿@model SchoolERPWebConsole.Domain.HRStaffStatusTogglePageViewModel
+@{
+    bool isActive = Model.EditItem.IsActive;
+    ViewData["Title"] = (isActive ? "Enable" : "Disable") + " Staff";
+}
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">@(isActive ? "Enable" : "Disable") Staff</h6>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <h5 class="fw-bold mb-0" id="statusPageTitle">@(isActive ? "Enable" : "Disable") Staff</h5>
+                <div>
+                    <button type="button" class="btn btn-success btn-sm" onclick="confirmStatusToggle()">
+                        <i class="ti ti-device-floppy me-1"></i> Save
+                    </button>
+                    <a href="@Url.Action("StaffDetails", new { id = Model.EditItem.StaffId })" class="btn btn-secondary btn-sm">
+                        <i class="ti ti-arrow-left me-1"></i> Back
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="statusError" class="alert alert-danger d-none py-2 px-3 mb-3 small" role="alert"></div>
+                <form id="statusForm" class="needs-validation" novalidate>
+                    <input type="hidden" id="hdnStaffID" value="@Model.EditItem.StaffId" />
+                    <input type="hidden" id="hdnStatusIsActive" value="@(!isActive ? "true" : "false")" />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Date of Leaving <span class="text-danger">*</span></label>
+                        <input type="date" id="txtStatusDate" class="form-control" required />
+                        <div class="invalid-feedback">Please select a date.</div>
+                    </div>
+                    <p class="text-muted small mb-0">Please select the date to record this action.</p>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/assets/js/StaffStatusToggle.js"></script>
+}

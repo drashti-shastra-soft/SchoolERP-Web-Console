@@ -1,0 +1,224 @@
+﻿@model SchoolERPWebConsole.Domain.StudentAttendancePageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+   int totalPages = Model.PageSize > 0
+                  ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                  : 0;
+    var p = Model.Permissions;
+    var dateParam = Model.AttendanceDate?.ToString("dd-MM-yyyy");
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-header d-flex justify-content-between align-items-center">
+
+            <div class="text-muted small">
+                <i class="ti ti-info-circle me-1"></i>Tip: use the checkbox in each column header to mark that status for every student below.
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="sticky-table">
+            <div class="table-responsive">
+
+                <div class="attendance-table-wrap">
+                    <table class="table attendance-table">
+                        <thead>
+                                <tr class="bg-light">
+                                <th class="sortable">
+                                    <span class="th-inner">S.No <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                                <th class="sortable">
+                                    <span class="th-inner">Admission No <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                                <th class="sortable">
+                                    <span class="th-inner">Roll No <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                                <th class="sortable">
+                                    <span class="th-inner">Name <i class="sort-icon">&#8597;</i></span>
+                                
+                                <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="1" title="Mark all Present">
+                                        <span>Present</span>
+
+                                    </div>
+                                </th>
+                                <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="2" title="Mark all Late">
+                                        <span>Late</span>
+
+                                    </div>
+                                </th>
+                                <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="3" title="Mark all Absent">
+                                        <span>Absent</span>
+
+                                    </div>
+                                </th>
+                                    </th>
+                                    <th style="min-width:120px;">
+                                        <div class="status-col-inner">
+                                            <input type="checkbox" class="form-check-input select-all-col me-1" data-status="4" title="Mark all Half Day">
+                                            <span>Half Day</span>
+                                        </div>
+                                    </th>
+                               @*  <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="4" title="Mark all Half Day">
+                                        <span>Half Day</span>
+
+                                    </div>
+                                </th> *@
+                                <th>
+                                    <div class="status-col-inner">
+                                        <input type="checkbox" class="form-check-input select-all-col me-1" data-status="5" title="Mark all Leave">
+                                        <span>Leave</span>
+
+                                    </div>
+                                </th>
+
+                                <th class="sortable">
+                                    <span class="th-inner">Date <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                                <th class="sortable">
+                                    <span class="th-inner">Source <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                                <th class="note-col sortable">
+                                    <span class="th-inner">Note <i class="sort-icon">&#8597;</i></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            @if (Model.StudentAttendanceModel != null && Model.StudentAttendanceModel.Any())
+                            {
+                                int sNo = 1;
+                                @foreach (var c in Model.StudentAttendanceModel)
+                                {
+                                    bool isPresent = c.AttendanceStatus == 1 || c.AttendanceStatus == null;
+                                    bool isLate = c.AttendanceStatus == 2;
+                                    bool isAbsent = c.AttendanceStatus == 3;
+                                    bool isHalfDay = c.AttendanceStatus == 4;
+                                    bool isLeave = (c.AttendanceStatus == 5) || (c.IsStudentLeaveAdd == true);
+                                    <tr class="item-row attendance-row" data-student-id="@c.StudentID" onclick="selectItem(@c.AttendanceID, this)" style="cursor: pointer;">
+                                        <td>@sNo</td>
+                                        <td>@c.AdmissionNo</td>
+                                        <td>@c.RollNo</td>
+                                        <td>@c.StudentName</td>
+                                        <td class="status-cell"  onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StudentID)" value="1" checked="@(isPresent ? "checked" : null)">
+                                        </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StudentID)" value="2" checked="@(isLate ? "checked" : null)">
+                                        </td>
+                                        <td class="status-cell"  onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StudentID)" value="3" checked="@(isAbsent ? "checked" : null)">
+                                        </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StudentID)" value="4" checked="@(isHalfDay ? "checked" : null)">
+                                        </td>
+                                            <td class="status-cell" onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="form-check-input atd-check" name="atd_@(c.StudentID)" value="5" checked="@(isLeave ? "checked" : null)">
+                                        </td>
+                                            <td>
+                                                @(c.AttendanceDate != null
+                                                    ? c.AttendanceDate.Value.ToString("dd-MM-yyyy")
+                                                    : Model.AttendanceDate?.ToString("dd-MM-yyyy"))
+                                            </td>
+                                        <td>Manual</td>
+                                        <td class="text-end" onclick="event.stopPropagation();">
+                                            <input type="text" style="width:200px" class="form-control attendance-note" value="@(string.IsNullOrWhiteSpace(c.Note) ? c.Reason : c.Note)" />
+                                        </td>
+                                    </tr>
+                                    sNo++;
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="12" class="text-center py-4">
+                                            <span class="text-muted">No records found</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <!-- ── Pagination ─────────────────────────────────────────────── -->
+                @if (totalPages > 1)
+                {
+                    <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                        <!-- Record info -->
+                        <div class="text-muted small">
+                            Showing
+                            <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                            –
+                            <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                            of
+                            <strong>@Model.TotalRecords</strong> users
+                        </div>
+
+                        <nav aria-label="Subject pagination">
+                            <ul class="pagination pagination-sm mb-0">
+
+                                <!-- First -->
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&classId=@Model.ClassId&sectionId=@Model.SectionID&date=@Model.AttendanceDate&studentId=@Model.StudentId">
+                                        <i class="ti ti-chevrons-left"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Prev -->
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&classId=@Model.ClassId&sectionId=@Model.SectionID&date=@Model.AttendanceDate&studentId=@Model.StudentId">
+                                        <i class="ti ti-chevron-left"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Page numbers — show 5 around current -->
+                                @{
+                                    int start = Math.Max(1, Model.PageNumber - 2);
+                                    int end = Math.Min(totalPages, start + 4);
+                                    start = Math.Max(1, end - 4);
+                                }
+                                @for (int pg = start; pg <= end; pg++)
+                                {
+                                    <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&classId=@Model.ClassId&sectionId=@Model.SectionID&date=@Model.AttendanceDate&studentId=@Model.StudentId">@pg</a>
+                                    </li>
+                                }
+
+                                <!-- Next -->
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&classId=@Model.ClassId&sectionId=@Model.SectionID&date=@Model.AttendanceDate&studentId=@Model.StudentId">
+                                        <i class="ti ti-chevron-right"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Last -->
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&classId=@Model.ClassId&sectionId=@Model.SectionID&date=@Model.AttendanceDate&studentId=@Model.StudentId">
+                                        <i class="ti ti-chevrons-right"></i>
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nav>
+
+                    </div>
+                }
+
+            </div>
+            </div>
+        </div>
+        <!-- end card-body -->
+    </div>
+    <!-- end card -->
+</div>

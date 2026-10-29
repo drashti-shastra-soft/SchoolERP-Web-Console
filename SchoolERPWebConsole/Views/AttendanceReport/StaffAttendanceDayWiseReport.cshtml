@@ -1,0 +1,193 @@
+﻿@*
+    ======================================================================
+    VIEW: Reports / StaffReport / Index.cshtml
+    PURPOSE: Staff Day Wise Attendance Report with filters (Role, Source,
+             Date) and export options.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.StaffAttendanceDayWiseReportPageViewModel
+@using System.Text.Json
+@{
+    Layout = "_Layout";
+    // FIX: was "Student Day Wise Attendance Report" -- copy-paste leftover
+    // from the student report this page was cloned from. This is the STAFF
+    // report (StaffAttendanceDayWiseReportPageViewModel, Staff ID / Role
+    // columns, etc.).
+    ViewData["Title"] = "Staff Day Wise Attendance Report";
+    var p = Model.Permissions;
+}
+
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Staff Day Wise Attendance Report</h6>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="reportPageNotice"></div>
+
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               name="search"
+                               id="txtSearchInput"
+                               value="@Model.SearchTerm"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Search by staff name or staff code..." />
+                    </div>
+
+                    <!-- Hidden form for filter submission -->
+                    <form method="get" asp-action="StaffAttendanceDayWiseReport" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="pageNumber" id="hdnPageIndex" value="1" />
+                        <input type="hidden" name="searchTerm" id="hdnSearch" value="@Model.SearchTerm" />
+                        <input type="hidden" name="sessionId" id="hdnSessionID" value="@Model.SessionId" />
+                        <input type="hidden" name="companyId" id="hdnCompanyId" value="@Model.CompanyId" />
+                        <input type="hidden" name="pageSize" id="hdnPageSize" value="@Model.PageSize" />
+                        <input type="hidden" name="searchType" id="hdnSearchType" value="@Model.SearchType" />
+                        <input type="hidden" name="dateFrom" id="hdnDateFrom" value="@Model.DateFrom" />
+                        <input type="hidden" name="dateTo" id="hdnDateTo" value="@Model.DateTo" />
+                        <input type="hidden" name="roleId" id="hdnRoleId" value="@Model.RoleId" />
+                        <input type="hidden" name="sectionID" id="hdnSectionId" value="@Model.SectionID" />
+                        <input type="hidden" name="attendanceType" id="hdnAttendanceType" value="@Model.Source" />
+                    </form>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggle"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl" id="filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn text-primary" onclick="resetAllFilters()" id="btnResetFilters">
+                                        <i class="ti ti-refresh me-1"></i>Reset
+                                    </button>
+                                    <button type="button" class="btn text-primary" id="btnApplyFilters">
+                                        <i class="ti ti-filter me-1"></i>Apply
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none" id="btnCloseFilter" aria-label="Close">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="filter-body pb-2">
+                                <div class="row g-2 p-2">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label mb-1">Roles</label>
+                                        <select class="form-select" name="ClassId" id="filter_role_id" required>
+                                            <option value="">Select</option>
+                                            @foreach (var c in Model.Roles)
+                                            {
+                                                <option value="@c.RoleID" selected="@(c.RoleID == Model.RoleId)">@c.RoleName</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label mb-1">Source</label>
+                                        @*
+                                            FIX: option values were leftover attendance-status codes
+                                            (P/L/A for Present/Late/Absent) instead of source codes,
+                                            and the "selected" checks compared against the display
+                                            TEXT ("Manual") while the posted VALUE would have been
+                                            the code ("P") -- guaranteeing selected never matched a
+                                            real round-trip. Values now match the display text 1:1,
+                                            and "selected" compares against that same value.
+                                            Adjust the literal strings here if your controller/SP
+                                            expects different source codes.
+                                        *@
+                                        <select class="form-control" name="Source" id="filter_source" autocomplete="off">
+                                            <option value="">Select</option>
+                                            <option value="Manual" selected="@(Model.Source == "Manual")">Manual</option>
+                                            <option value="QR Code / Barcode" selected="@(Model.Source == "QR Code / Barcode")">QR Code / Barcode</option>
+                                            <option value="Biometric" selected="@(Model.Source == "Biometric")">Biometric</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label mb-1">Date From</label>
+                                        <div class="input-icon-start position-relative">
+                                            <span class="input-icon-addon">
+                                                <i class="ti ti-calendar"></i>
+                                            </span>
+                                            <input name="DateFrom" id="filter_date" type="text" class="form-control datetimepicker" value="@Model.DateFrom">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="StaffReportTableContainer">
+        @await Html.PartialAsync("_StaffAttendanceDayWiseTablePartial", Model)
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        window.canExport = @JsonSerializer.Serialize(p.CanExport);
+        window.canPrint = @JsonSerializer.Serialize(p.CanPrint);
+    </script>
+    <script src="~/assets/js/StaffAttendanceDayWiseReport.js"></script>
+}

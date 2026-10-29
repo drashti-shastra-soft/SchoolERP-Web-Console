@@ -1,0 +1,140 @@
+﻿@model SchoolERPWebConsole.Domain.AccountPageViewModel
+@{
+    var p = Model.Permissions;
+}
+
+<div class="card shadow-tbl-outer">
+    <div class="card-body p-2">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="AccountHeadTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;" class="ps-3">Select</th>
+                        <th>Account Name</th>
+                        <th>Account No</th>
+                        <th>Account Type</th>
+                        <th>Cost Center</th>
+                        <th>Opening Balance</th>
+                        <th>Opening Bal Type</th>
+                        <th>Opening Date</th>
+                        <th>Email</th>
+                        <th>Mobile No</th>
+                        <th>Doc</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.AccountHead != null && Model.AccountHead.Any())
+                    {
+                        var startIndex = (Model.PageNumber - 1) * Model.PageSize;
+                        for (int i = 0; i < Model.AccountHead.Count; i++)
+                        {
+                            var s = Model.AccountHead[i];
+                            <tr class="student-row" data-id="@s.AccountID">
+                                <td class="ps-3">
+                                    <input type="checkbox" name="selectedItem" style="cursor: pointer;"
+                                           class="form-check-input student-checkbox"
+                                           value="@s.AccountID">
+
+                                </td>
+                                <td>@s.AccountName</td>
+                                <td>@s.AccountNo</td>
+                                <td>@s.AccountTypeName</td>
+                                <td>@s.CostCenter</td>
+                               
+                                <td>@s.OpeningBalance</td>
+                                <td>@s.OpeningBalType</td>
+                                <td>@s.OpeningDate</td>                                
+                                <td>@s.Email</td>
+                                <td>@s.MobileNo</td>
+                                <td>
+                                    @if (s.AttachDoc != null && s.AttachDoc.Length > 0)
+                                    {
+                                        var attachmentFileName = System.IO.Path.GetFileName(s.AttachDoc);
+                                        <a href="javascript:void(0)"
+                                           class="btn btn-sm btn-white border px-2 py-1 btn-view-attachment"
+                                           title="View Attachment"
+                                           onclick="event.stopPropagation(); viewDispatchAttachment(@s.AccountID, '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(s.AccountName ?? s.AccountTypeName ?? "Attachment"))', '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(attachmentFileName))', '@Html.Raw(System.Text.Json.JsonEncodedText.Encode(s.AttachDoc))')">
+                                            <i class="ti ti-paperclip fs-5"></i>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted fs-7">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                        <input class="form-check-input" type="checkbox"
+                                               onchange="toggleStatus(@s.AccountID, this.checked,this)"
+                                        @(s.IsActive ? "checked" : "")
+                                        @(p.CanEdit ? "" : "disabled")>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="11" class="text-center text-muted py-4">No student records found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @{
+            var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize) : 0;
+        }
+        @if (totalPages > 1)
+        {
+            <nav class="mt-2">
+                <ul class="pagination pagination-sm justify-content-end mb-0">
+                    @for (int pg = 1; pg <= totalPages; pg++)
+                    {
+                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                            <a class="page-link"
+                               href="@Url.Action("Index", new { pageNumber = pg, pageSize = Model.PageSize, searchTerm = Model.SearchTerm, companyId = Model.CompanyId, sessionId = Model.SessionId})">
+                                @pg
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    </div>
+</div>
+
+<!-- Attachment Preview Popup -->
+<div class="modal fade" id="modalDispatchAttachment" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title mb-0" id="modalDispatchAttachmentTitle">Attachment</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="min-height: 70vh;">
+
+
+                <img id="imgDispatchAttachment"
+                     src=""
+                     style="display:none; max-width:100%; max-height:70vh; margin:0 auto; object-fit:contain;" />
+
+                <iframe id="frmDispatchAttachment" src="" style="width:100%; height:70vh; border:0; display:none;"></iframe>
+
+                <div id="dispatchAttachmentUnsupported" class="d-none flex-column align-items-center justify-content-center text-center text-muted p-5" style="height:70vh;">
+                    <i class="ti ti-file-unknown mb-2" style="font-size:2rem;"></i>
+                    <div>Preview isn't available for this file type.</div>
+                    <div class="fs-13">Use the Download button above to open it.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btnDownloadDispatchAttachment" class="btn btn-sm btn-primary" title="Download">
+                    <i class="ti ti-download me-1"></i>
+                    <span id="btnDownloadDispatchAttachmentLabel">Download</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

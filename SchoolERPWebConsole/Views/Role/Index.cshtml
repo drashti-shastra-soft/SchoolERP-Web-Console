@@ -1,0 +1,262 @@
+@*
+    ======================================================================
+    VIEW: Role Management Index
+    PURPOSE: Provides a single-page interface to view all master roles,
+             toggle their active statuses, and create/edit roles.
+             Contains a highly dynamic javascript-based hierarchical tree
+             view for mapping modules permissions sequentially alongside role saves.
+    FEATURES:
+    - Master table rendering mapped from MstUserManagementPageViewModel
+    - Split-modal design (Left: Metadata, Right: Matrix checks)
+    - AJAX-based form submission for both Roles and Permissions
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.MstUserManagementPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Role Management";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.PermissionsButton;
+}
+
+<link rel="stylesheet" href="~/css/treeview.css" />
+<style>
+    /* ── Combined Role + Permission form ── */
+    .role-form-panel {
+        -background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        min-width: 300px;
+        max-width: 340px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .perm-panel {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .modal-split-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #rolePermModal .modal-content {
+        height: 92vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #rolePermModal .modal-body {
+        flex: 1;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .perm-tree-scroll {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .perm-checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .perm-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    /* section header inside left panel */
+    .panel-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* perm toolbar */
+    .perm-toolbar {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0.5rem 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+    }
+
+        .perm-toolbar .text-hint {
+            font-size: 0.72rem;
+            color: #6c757d;
+        }
+
+    th.matrix-col.w-s-nowrap {
+        -white-space: nowrap;
+        text-align: center;
+    }
+    /* Depth-0 highlight for parent nodes */
+    .tree-row.depth-0 {
+        background-color: #f8f9fc;
+    }
+
+        .tree-row.depth-0 .tree-label {
+            font-weight: 500;
+            color: #32325d;
+        }
+
+    .dt-buttons {
+        display: none !important;
+    }
+</style>
+
+
+<div class="sticky-toolbar d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Role Management</h6>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+        @if (p.CanAdd)
+        {
+            <a href="/Role/Add" class="btn btn-primary shadow-sm top-btn" id="btnAddRole">
+                <i class="ti ti-plus me-1"></i>Add
+            </a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEditRole" class="btn btn-info shadow-sm top-btn" disabled onclick="editSelectedRole()">
+                <i class="ti ti-pencil me-1"></i>Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDeleteRole" class="btn btn-danger shadow-sm top-btn" disabled onclick="deleteSelectedRole()">
+                <i class="ti ti-trash me-1"></i>Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center shadow-sm top-btn" onclick="triggerExport('print')">
+                <i class="ti ti-printer me-1"></i> Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-warning dropdown-toggle d-inline-flex align-items-center shadow-sm top-btn" type="button" data-bs-toggle="dropdown">
+                    <i class="ti ti-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('copy')"><i class="ti ti-copy me-2"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('csv')"><i class="ti ti-file-text me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('excel')"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('pdf')"><i class="ti ti-file-description me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <!-- ── Search box (name="search" so form submits it) ── -->
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text"
+                               name="search"
+                               id="txtSearchInput"
+                               value="@Model.SearchTerm"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Search by Role Name, Description..." />
+                    </div>
+
+                    <!-- Hidden form for filter submission — outside Bootstrap dropdown -->
+                    <form method="get" asp-action="Index" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="pageIndex" id="hdnPageIndex" value="1" />
+                        <input type="hidden" name="search" id="hdnSearch" value="@Model.SearchTerm" />
+                        <input type="hidden" name="sessionID" id="hdnSessionID" value="" />
+                        <input type="hidden" name="companyId" id="hdnCompanyId" value="" />
+                        <input type="hidden" name="sectionID" id="hdnSectionID" value="" />
+                        <input type="hidden" name="pageSize" id="hdnPageSize" value="@Model.PageSize" />
+                    </form>
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="roleTableContainer">
+        @await Html.PartialAsync("_RoleTablePartial", Model)
+    </div>
+</div>
+
+
+
+
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+    </script>
+
+    <script src="~/assets/js/Role.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', initRolesExport);
+    </script>
+}

@@ -1,0 +1,367 @@
+﻿@model PositionOfStudentPageViewModel
+@{
+    ViewData["Title"] = "Position of Student Fee";
+
+    
+
+    // number formatting: 592400 / 74759290.8 (no trailing zeros, no thousand separators)
+    string N(decimal? v) => (v ?? 0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    string I(int? v) => (v ?? 0).ToString();
+
+    bool IsGrand(string t) => !string.IsNullOrEmpty(t) && t.ToUpper().Contains("GRAND");
+    bool IsTotal(string t) => !string.IsNullOrEmpty(t) && t.ToUpper().Contains("TOTAL") && !IsGrand(t);
+
+    var rows = Model.PositionOfStudent.OrderBy(r => r.SortKey ?? 0).ToList();
+}
+
+<style>
+    .pos-filter-select {
+        min-width: 100%;
+    }
+
+    .filter-dropdown .select2-container {
+        z-index: 1060;
+    }
+
+    .pos-grid-wrap {
+        max-height: 70vh;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        background: #fff;
+    }
+
+    .pos-grid {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+        .pos-grid th, .pos-grid td {
+            border-right: 1px solid #e3e3e3;
+            border-bottom: 1px solid #e3e3e3;
+            padding: 6px 10px;
+        }
+
+        .pos-grid thead th {
+            position: sticky;
+            background: #f7f7f7;
+            text-align: center;
+            font-weight: 600;
+            z-index: 2;
+        }
+
+        .pos-grid thead tr.h1 th {
+            top: 0;
+        }
+
+        .pos-grid thead tr.h2 th {
+            top: 34px;
+        }
+
+        .pos-grid td.num {
+            text-align: right;
+        }
+
+        .pos-grid td.idx {
+            text-align: right;
+            font-weight: 600;
+            background: #f7f7f7;
+            width: 36px;
+        }
+
+    .c-ts {
+        background: #f6ecf8;
+    }
+
+    .c-act {
+        background: #fdf0c4;
+    }
+
+    .c-sub {
+        background: #c9f0a0;
+    }
+
+    .c-bal {
+        background: #fbc9c5;
+    }
+
+    .pos-grid tr.row-total td {
+        font-weight: 700;
+        background: #fff;
+    }
+
+        .pos-grid tr.row-total td.c-ts,
+        .pos-grid tr.row-total td.c-act,
+        .pos-grid tr.row-total td.c-sub,
+        .pos-grid tr.row-total td.c-bal {
+            background: inherit;
+        }
+
+        .pos-grid tr.row-total td.c-ts {
+            background: #f6ecf8;
+        }
+
+        .pos-grid tr.row-total td.c-act {
+            background: #fdf0c4;
+        }
+
+        .pos-grid tr.row-total td.c-sub {
+            background: #c9f0a0;
+        }
+
+        .pos-grid tr.row-total td.c-bal {
+            background: #fbc9c5;
+        }
+
+    .pos-grid tr.row-grand td {
+        font-weight: 700;
+        text-align: right;
+        background: #f7f7f7;
+    }
+
+        .pos-grid tr.row-grand td.c-act {
+            background: #fdf0c4;
+        }
+
+        .pos-grid tr.row-grand td.c-sub {
+            background: #c9f0a0;
+        }
+
+        .pos-grid tr.row-grand td.c-bal {
+            background: #fbc9c5;
+        }
+</style>
+
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div><h6 class="fw-bold mb-0">Position of Student Fee</h6></div>
+</div>
+
+<div class="row">
+
+    <div class="col-xl-12">
+        <div class="card mb-2 shadow-tbl-outer">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 search-term">
+
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 bg-white flex-grow-1 search-box-wrap" style="max-width:420px;">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" id="txtSearchInput"
+                               class="form-control border-0 ps-2 search-input-responsive"
+                               placeholder="Search by Class or Section..." />
+                    </div>
+
+                    <form method="get" asp-action="PositionOfStudent" id="frmSearch" style="display:none;">
+                        <input type="hidden" name="CLASSIDS" id="hdnClassIds" />
+                        <input type="hidden" name="INSTALLMENTLABELS" id="hdnInstallments" />
+                        <input type="hidden" name="FEEHEADIDS" id="hdnFeeHeadIds" />
+                        <input type="hidden" name="TRANSPORTFEEHEADIDS" id="hdnTransportHeadIds" />
+                        <input type="hidden" name="sessionID" id="hdnSessionID" value="@Model.SessionId" />
+                        <input type="hidden" name="companyId" id="hdnCompanyId" value="@Model.CompanyId" />
+                    </form>
+
+                    <div class="dropdown">
+                        <a href="#" id="btnFilterToggle"
+                           class="btn btn-white border rounded btn-md text-dark fs-14 align-items-center d-flex fw-normal"
+                           data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-filter text-gray-5 me-1"></i>Filters
+                        </a>
+
+                        <div class="dropdown-menu dropdown-lg dropdown-menu-end filter-dropdown p-0 shadow-tbl" id="filter-dropdown">
+
+                            <div class="d-flex align-items-center justify-content-between border-bottom filter-header">
+                                <h6 class="mb-0 fw-bold">Select Criteria</h6>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <button type="button" class="btn text-primary" onclick="resetAllFilters()" id="btnResetFilters">
+                                        <i class="ti ti-refresh me-1"></i>Reset
+                                    </button>
+                                    <button type="button" class="btn text-primary" id="btnApplyFilters">
+                                        <i class="ti ti-filter me-1"></i>Apply
+                                    </button>
+                                    <button type="button" class="btn btn-icon btn-sm ms-1 d-md-none" id="btnCloseFilter" aria-label="Close">
+                                        <i class="ti ti-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="filter-body pb-0">
+                                <div class="row">
+                                    @await Html.PartialAsync("_CompanySessionFilter", new CompanySessionFilterViewModel
+                               {
+                                   Companies = Model.Companies,
+                                   Sessions = Model.Sessions,
+                                   CompanyId = Model.CompanyId,
+                                   SessionId = Model.SessionId
+                               })
+
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label fw-semibold">Class</label>
+                                        <select id="ddlClass" class="form-select pos-filter-select" multiple>
+                                            @foreach (var c in Model.ClassList)
+                                            {
+                                                <option value="@c.ClassID">@c.ClassName</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label fw-semibold">Installment</label>
+                                        <select id="ddlInstallment" class="form-select pos-filter-select" multiple>
+                                            @foreach (var i in Model.FeeInstallment)
+                                            {
+                                                <option value="@i.Name">@i.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label fw-semibold">Fee Head</label>
+                                        <select id="ddlFeeHead" class="form-select pos-filter-select" multiple>
+                                            @foreach (var i in Model.FeeHead)
+                                            {
+                                                <option value="@i.Id">@i.Name</option>
+                                            }
+                                        </select>                                        
+                                    </div>
+
+                                    <div class="d-none col-12 mb-3">
+                                        <label class="form-label fw-semibold">Transport Fee Head <span class="text-muted small">(blank = auto-detect)</span></label>
+                                        <select id="ddlTransportHead" class="form-select pos-filter-select" multiple></select>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active filter badges -->
+    <div class="col-xl-12" id="activeFilterBadges" style="display: none;">
+        <div class="card shadow-tbl border-0 py-2 mb-2">
+            <div class="card-body p-2 d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small fw-bold ms-2 me-2">
+                    <i class="ti ti-filter-check me-1"></i>Active Filters:
+                </span>
+                <div id="badgeContainer" class="d-flex flex-wrap gap-2"></div>
+                <button class="btn btn-sm btn-link text-danger p-0 ms-auto me-2 fw-bold text-decoration-none"
+                        id="btnResetAllFilters" onclick="resetAllFilters()">
+                    <i class="ti ti-trash me-1"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report table (inline, no partial) -->
+    <div class="col-xl-12" id="PositionTableContainer">
+        <div class="pos-grid-wrap shadow-tbl">
+            <table class="pos-grid" id="tblPosition">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width:36px;"></th>
+                        <th rowspan="2" style="text-align:left;min-width:150px;">Class</th>
+                        <th rowspan="2" style="min-width:60px;">Sec.</th>
+                        <th colspan="4">Student Strength</th>
+                        <th colspan="3">Total Dues</th>
+                        <th colspan="3">Actual Fee (Opn. Bal + AT.Fee - Disc. Amt)</th>
+                        <th colspan="3">Transport Fee</th>
+                    </tr>
+                    <tr>
+                        <th>T.S.</th>
+                        <th>T.Stu</th>
+                        <th>T.NS</th>
+                        <th>T.OS</th>
+                        <th>Opn. Bal</th>
+                        <th>AT.Fee</th>
+                        <th>Disc. Amt</th>
+                        <th>Actual</th>
+                        <th>Subm.</th>
+                        <th>Bal.</th>
+                        <th>Actual</th>
+                        <th>Subm.</th>
+                        <th>Bal.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!rows.Any())
+                    {
+                        <tr><td colspan="16" class="text-center text-muted py-4">No records found.</td></tr>
+                    }
+
+                    @foreach (var r in rows)
+                    {
+                        if (IsGrand(r.RowType))
+                        {
+                            <tr class="row-grand">
+                                <td colspan="11"></td>
+                                <td>Grand Total</td>
+                                <td class="c-act">@N(r.GrandActual)</td>
+                                <td class="c-sub">@N(r.GrandSubm)</td>
+                                <td class="c-bal">@N(r.GrandBal)</td>
+                            </tr>
+                        }
+                        else if (IsTotal(r.RowType))
+                        {
+                            <tr class="row-total">
+                                <td class="idx"></td>
+                                <td>@(string.IsNullOrEmpty(r.ClassName) ? "Total" : r.ClassName)</td>
+                                <td>@r.SectionName</td>
+                                <td class="num c-ts">@(r.TS?.ToString())</td>
+                                <td class="num c-ts">@I(r.TStu)</td>
+                                <td class="num c-ts">@I(r.TNS)</td>
+                                <td class="num c-ts">@I(r.TOS)</td>
+                                <td class="num">@N(r.OpnBal)</td>
+                                <td class="num">@N(r.AtFee)</td>
+                                <td class="num">@N(r.DiscAmt)</td>
+                                <td class="num c-act">@N(r.FeeActual)</td>
+                                <td class="num c-sub">@N(r.FeeSubm)</td>
+                                <td class="num c-bal">@N(r.FeeBal)</td>
+                                <td class="num c-act">@N(r.TrActual)</td>
+                                <td class="num c-sub">@N(r.TrSubm)</td>
+                                <td class="num c-bal">@N(r.TrBal)</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr class="data-row" data-search="@(($"{r.ClassName} {r.SectionName}").ToLower())">
+                                <td class="idx">@r.SrNo</td>
+                                <td>@r.ClassName</td>
+                                <td>@r.SectionName</td>
+                                <td class="num c-ts">@(r.TS?.ToString())</td>
+                                <td class="num c-ts">@I(r.TStu)</td>
+                                <td class="num c-ts">@I(r.TNS)</td>
+                                <td class="num c-ts">@I(r.TOS)</td>
+                                <td class="num">@N(r.OpnBal)</td>
+                                <td class="num">@N(r.AtFee)</td>
+                                <td class="num">@N(r.DiscAmt)</td>
+                                <td class="num c-act">@N(r.FeeActual)</td>
+                                <td class="num c-sub">@N(r.FeeSubm)</td>
+                                <td class="num c-bal">@N(r.FeeBal)</td>
+                                <td class="num c-act">@N(r.TrActual)</td>
+                                <td class="num c-sub">@N(r.TrSubm)</td>
+                                <td class="num c-bal">@N(r.TrBal)</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        // Set these to your real endpoints (must return JSON: [{ id, name }])
+        window.PosConfig = {
+            feeHeadUrl: '/PositionOfStudent/GetFeeHeads',
+            transportHeadUrl: '/PositionOfStudent/GetTransportFeeHeads'
+        };
+    </script>
+    <script src="~/assets/js/PositionOfStudent.js"></script>
+}

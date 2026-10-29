@@ -1,0 +1,74 @@
+﻿@model SchoolERPWebConsole.Domain.FOPhoneCallLogViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Phone Call Log Details";
+}
+
+<!-- Page Header -->
+<div class="row">
+    <div class="col-xl-12">
+        <div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+            <div>
+                <h6 class="fw-bold mb-0">Phone Call Log Details</h6>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+                <a href="/FrontOffice/PhoneCallLog" class="btn btn-secondary top-btn">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- Details Card -->
+    <div class="col-md-12 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <b>Phone Call Log Details</b>
+                </li>
+                @if (Model != null)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Name :</span>
+                        <span>@Model?.Name</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Phone :</span>
+                        <span>@Model?.Phone</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Date :</span>
+                        <span>@Model?.Date.ToString("dd MMM yyyy")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Call Duration :</span>
+                        <span>@Model?.CallDuration</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Call Type :</span>
+                        <span>@Model?.CallType</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Note :</span>
+                        <span>@Model?.Note</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Next Follow Up Date :</span>
+                        <span>@Model?.NextFollowUpDate?.ToString("dd MMM yyyy")</span>
+                    </li>
+                }
+                else
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">To Title :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">From Title :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Address :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Note :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Reference No :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Date :</span> -</li>
+                }
+            </ul>
+        </div>
+    </div>
+    </div>
+

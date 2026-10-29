@@ -1,0 +1,371 @@
+﻿@*
+    VIEW: Communication / SendEmail.cshtml
+    Left  : Email Template, Title, Attachment, Message editor, Send mode
+    Right : Message To  (Group | Individual | Class | Today's Birthday)
+*@
+@model SchoolERPWebConsole.Domain.CommunicationViewModel
+@using System.Text.Json
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Send Email";
+    var p = Model.Permissions;
+    var canSave = p.CanAdd;
+    long maxMb = ViewBag.MaxFileSizeMB is long m ? m : 5;
+}
+
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <h6 class="fw-bold mb-0">Communication</h6>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (canSave)
+        {
+            <button type="button" id="btnSend" class="btn btn-success top-btn">
+                <i class="ti ti-send me-1"></i> Send
+            </button>
+        }
+        <a href="/Communication/SendEmail" class="btn btn-secondary top-btn">
+            <i class="ti ti-refresh me-1"></i> Reset
+        </a>
+    </div>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<form id="emailForm" onsubmit="return false;" novalidate>
+    <div class="card shadow-tbl-outer">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-normal">Send Email</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+
+                <!-- ============ LEFT ============ -->
+                <div class="col-lg-7">
+                    <div class="row row-gap-3">
+
+                        <div class="col-12">
+                            <label class="form-label" for="ddlEmailTemplate">Email Template</label>
+                            <select class="form-select" id="ddlEmailTemplate">
+                                <option value="">-- Select --</option>
+                                @foreach (var item in Model.EmailTemplet ?? new())
+                                {
+                                    <option value="@item.ID">@item.Title</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label" for="txtTitle">Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="txtTitle" maxlength="500" placeholder="Enter Title">
+                            <div class="text-danger small mt-1 d-none" id="errTitle">Title is required.</div>
+                        </div>
+
+                        <!-- Attachment -->
+                        <div class="col-12">
+                            <label class="form-label">Attachment</label>
+                            <div id="dropZone" class="drop-zone" tabindex="0" role="button">
+                                <i class="ti ti-cloud-upload me-1"></i>
+                                <span>Drag and drop a file here or click</span>
+                            </div>
+                            <input type="file" id="attachmentFile" class="d-none"
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt">
+                            <div class="text-danger small mt-1 d-none" id="errAttachment"></div>
+                            <div class="small text-muted mt-1">Max @maxMb MB. PDF, Word, Excel, PowerPoint, images, text.</div>
+
+                            <div id="fileInfo" class="mt-1 d-none align-items-center gap-2">
+                                <i class="ti ti-paperclip"></i>
+                                <a id="fileInfoName" class="small" href="#" target="_blank" rel="noopener"></a>
+                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" id="btnClearFile" title="Remove">
+                                    <i class="ti ti-x"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Message -->
+                        <div class="col-12">
+                            <label class="form-label">Message <span class="text-danger">*</span></label>
+                            <div id="editorWrap">
+                                <div id="editor"></div>
+                            </div>
+                            <div class="text-danger small mt-1 d-none" id="errMessage">Message is required.</div>
+                        </div>
+
+                        <!-- Send mode -->
+                        <div class="col-12">
+                            <label class="form-label d-block">Send</label>
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="SendMode" id="modeNow" value="NOW" checked>
+                                    <label class="form-check-label" for="modeNow">Send now</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="SendMode" id="modeSchedule" value="SCHEDULE">
+                                    <label class="form-check-label" for="modeSchedule">Schedule</label>
+                                </div>
+                                <input type="datetime-local" id="txtSchedule" class="form-control w-auto d-none">
+                            </div>
+                            <div class="text-danger small mt-1 d-none" id="errSchedule">Choose a future date and time.</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ============ RIGHT ============ -->
+                <div class="col-lg-5 mt-3 mt-lg-0">
+                    <label class="form-label">Message To <span class="text-danger">*</span></label>
+
+                    <ul class="nav nav-tabs mb-2" id="sendToTabs">
+                        <li class="nav-item"><a class="nav-link active" href="javascript:void(0)" data-type="GROUP">Group</a></li>
+                        <li class="nav-item"><a class="nav-link" href="javascript:void(0)" data-type="INDIVIDUAL">Individual</a></li>
+                        <li class="nav-item"><a class="nav-link" href="javascript:void(0)" data-type="CLASS">Class</a></li>
+                        <li class="nav-item"><a class="nav-link" href="javascript:void(0)" data-type="BIRTHDAY">Today's Birthday</a></li>
+                    </ul>
+
+                    <div class="card shadow-tbl-outer">
+                        <div class="card-body">
+
+                            <!-- GROUP -->
+                            <div id="panelGroup" class="sendto-panel">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="chkAllRoles">
+                                    <label class="form-check-label fw-semibold" for="chkAllRoles">Select all</label>
+                                </div>
+                                <div class="roles-panel">
+                                    @foreach (var item in Model.RoleList ?? new())
+                                    {
+                                        <div class="form-check mb-1">
+                                            <input class="form-check-input role-checkbox" type="checkbox"
+                                                   value="@item.RoleID" id="role_@item.RoleID">
+                                            <label class="form-check-label" for="role_@item.RoleID">@item.RoleName</label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- INDIVIDUAL -->
+                            <div id="panelIndividual" class="sendto-panel d-none">
+                                <div class="input-group mb-2">
+                                    <select id="ddlIndividualRole" class="form-select" style="max-width:130px;">
+                                        @foreach (var item in Model.RoleList ?? new())
+                                        {
+                                            <option value="@item.RoleID">@item.RoleName</option>
+                                        }
+                                    </select>
+                                    <input type="text" id="txtIndividualSearch" class="form-control"
+                                           placeholder="Search name / admission no..." autocomplete="off">
+                                    <button type="button" id="btnAddIndividual" class="btn btn-dark">Add</button>
+                                </div>
+                                <div id="individualSearchResults" class="list-group mb-2"
+                                     style="max-height:200px; overflow-y:auto; display:none;"></div>
+
+                                <div class="border rounded p-2">
+                                    <input type="text" id="txtFilterAdded" class="form-control mb-2" placeholder="Search added...">
+                                    <div id="addedIndividualsList" style="max-height:260px; overflow-y:auto;">
+                                        <div class="text-muted small" id="noIndividuals">No one added yet.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CLASS -->
+                            <div id="panelClass" class="sendto-panel d-none">
+                                <select id="ddlClass" class="form-select mb-3">
+                                    <option value="">-- Select Class --</option>
+                                    @foreach (var c in Model.Classes ?? new())
+                                    {
+                                        <option value="@c.ClassID">@c.ClassName</option>
+                                    }
+                                </select>
+                                <div class="border rounded p-3">
+                                    <div class="d-flex justify-content-between">
+                                        <label class="form-label fw-semibold">Section <span class="text-danger">*</span></label>
+                                        <div class="form-check d-none" id="allSectionsWrap">
+                                            <input class="form-check-input" type="checkbox" id="chkAllSections">
+                                            <label class="form-check-label small" for="chkAllSections">All</label>
+                                        </div>
+                                    </div>
+                                    <div id="sectionContainer">
+                                        <div class="text-muted small">Select a class to load sections</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BIRTHDAY (direct bind) -->
+                            <div id="panelBirthday" class="sendto-panel d-none">
+                                @{
+                                    var bdAll = Model.BirthdayToday ?? new List<BirthdayTodayResponse>();
+                                    var bdStudents = bdAll.Where(x => x.PersonType == "STUDENT").ToList();
+                                    var bdStaff = bdAll.Where(x => x.PersonType == "STAFF").ToList();
+                                }
+
+                                @if (!bdAll.Any())
+                                {
+                                    <div class="text-muted small">No birthdays today.</div>
+                                }
+
+                                <div class="roles-panel">
+                                    @if (bdStudents.Any())
+                                    {
+                                        <h5 class="birthday-heading">Students</h5>
+                                        @foreach (var b in bdStudents)
+                                        {
+                                            var hasMail = !string.IsNullOrWhiteSpace(b.Email);
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input birthday-checkbox" type="checkbox"
+                                                       id="bd_STUDENT_@b.PersonId"
+                                                       data-type="STUDENT" data-id="@b.PersonId"
+                                                       checked="@hasMail" disabled="@(!hasMail)">
+                                                <label class="form-check-label" for="bd_STUDENT_@b.PersonId">
+                                                    <strong>@b.Name</strong>
+                                                    @if (!hasMail)
+                                                    {
+                                                        <span class="badge bg-warning text-dark ms-1">No email</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        }
+                                    }
+
+                                    @if (bdStaff.Any())
+                                    {
+                                        <h5 class="birthday-heading mt-4">Staff</h5>
+                                        @foreach (var b in bdStaff)
+                                        {
+                                            var hasMail = !string.IsNullOrWhiteSpace(b.Email);
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input birthday-checkbox" type="checkbox"
+                                                       id="bd_STAFF_@b.PersonId"
+                                                       data-type="STAFF" data-id="@b.PersonId"
+                                                       checked="@hasMail" disabled="@(!hasMail)">
+                                                <label class="form-check-label" for="bd_STAFF_@b.PersonId">
+                                                    <strong>@b.Name</strong>
+                                                    @if (!hasMail)
+                                                    {
+                                                        <span class="badge bg-warning text-dark ms-1">No email</span>
+                                                    }
+                                                </label>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Styles {
+    <style>
+        .drop-zone {
+            border: 1px solid #ced4da;
+            border-radius: .375rem;
+            padding: .5rem 1rem;
+            text-align: center;
+            color: #6c757d;
+            cursor: pointer;
+            background: #fff;
+            transition: background .15s,border-color .15s;
+        }
+
+            .drop-zone:hover, .drop-zone:focus, .drop-zone.dragover {
+                background: #f1f5ff;
+                border-color: #0d6efd;
+                outline: 0;
+            }
+
+        .editor-wrap {
+            border: 1px solid #ced4da;
+            border-radius: .375rem;
+            background: #fff;
+        }
+
+            .editor-wrap.is-invalid {
+                border-color: #dc3545;
+            }
+
+        .editor-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem;
+            padding: .5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .editor-area {
+            min-height: 300px;
+            padding: .75rem;
+            outline: 0;
+            overflow-y: auto;
+        }
+
+            .editor-area:empty:before {
+                content: 'Write your message here...';
+                color: #adb5bd;
+            }
+
+            .editor-area blockquote {
+                border-left: 3px solid #ced4da;
+                padding-left: .75rem;
+                color: #6c757d;
+                margin: .5rem 0;
+            }
+
+            .editor-area img {
+                max-width: 100%;
+                height: auto;
+            }
+
+        .roles-panel {
+            max-height: 420px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        #sendToTabs .nav-link {
+            color: #555;
+            font-size: .85rem;
+            padding: .4rem .7rem;
+        }
+
+            #sendToTabs .nav-link.active {
+                color: #000;
+                border-bottom: 2px solid #f0a000;
+                font-weight: 600;
+            }
+
+        ul#sendToTabs {
+            gap: 0.5rem;
+        }
+
+        #editorWrap .ck-editor__editable_inline {
+            min-height: 300px;
+        }
+
+        #editorWrap.is-invalid .ck.ck-toolbar,
+        #editorWrap.is-invalid .ck.ck-editor__main > .ck-editor__editable {
+            border-color: #dc3545 !important;
+        }
+
+        .birthday-heading {
+            font-size: 1.15rem;
+            font-weight: 500;
+            margin: .5rem 0 .75rem;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.maxFileSizeMB = @maxMb;
+    </script>
+    <script src="~/assets/js/SendEmail.js"></script>
+}

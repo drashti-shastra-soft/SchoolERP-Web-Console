@@ -1,0 +1,164 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.FieldPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="tblCustomFields">
+                        <thead>
+                            <tr class="bg-light">
+                                <th>Select</th>
+                                <th>Order</th>
+                                <th>Module</th>
+                                <th>Field Name</th>
+                                <th>Type</th>
+                                <th>Grid</th>
+                                <th>Required</th>
+                                <th>On Table</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.fieldModels != null)
+                            {
+                                @foreach (var field in Model.fieldModels)
+                                {
+                                    <tr class="item-row" onclick="selectItem(@field.FieldId, this)">
+                                        <td class="ps-3">
+                                            <input type="checkbox" name="selectedField" style="cursor: pointer;"
+                                                   class="form-check-input student-checkbox"
+                                                   value="@field.FieldId">
+
+                                        </td>
+                                        <td>@field.DisplayOrder</td>
+                                        <td><span class="badge bg-light text-dark">@field.BelongsTo</span></td>
+                                        <td>@field.FieldName</td>
+                                        <td><span class="badge bg-light text-dark">@field.FieldType</span></td>
+                                        <td>col-md-@field.GridColumn</td>
+                                        <td>
+                                            @if (field.IsRequired)
+                                            {
+                                                <span class="badge bg-danger">Yes</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-dark">No</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (field.OnTable)
+                                            {
+                                                <span class="badge bg-success">Yes</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-dark">No</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                <input class="form-check-input" type="checkbox" @(field.IsActive ? "checked" : "") onclick="toggleStatus(@field.FieldId, this.checked,this)">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId&belogto=@Model.BelongsTo">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId&belogto=@Model.BelongsTo">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId&belogto=@Model.BelongsTo">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId&belogto=@Model.BelongsTo">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId&belogto=@Model.BelongsTo">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

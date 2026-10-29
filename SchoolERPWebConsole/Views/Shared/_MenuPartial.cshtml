@@ -1,0 +1,141 @@
+﻿@using Microsoft.AspNetCore.Html
+@model List<MenuViewModel>
+@{
+    currentUrl = (Context.Request.Path.Value ?? "").TrimEnd('/').ToLower();
+    RenderMenus(null, 1);
+}
+
+@functions
+{
+    string currentUrl;
+    bool IsUrlMatch(string menuUrl, string currentUrl)
+    {
+        if (string.IsNullOrWhiteSpace(menuUrl)) return false;
+        return menuUrl.TrimEnd('/').ToLower() == currentUrl;
+    }
+
+    // Returns true if this menu OR any of its descendants is the active page.
+    // Used so parent submenus know to render "active subdrop" and expand.
+    bool RenderMenus(int? parentId, int menuLevel)
+    {
+        var menus = Model
+            .Where(x => x.ParentID == parentId)
+            .OrderBy(x => x.DisplayOrder);
+
+        bool anyChildActive = false;
+
+        foreach (var menu in menus)
+        {
+            var hasChildren = Model.Any(x => x.ParentID == menu.MenuID);
+            bool isLeafActive = !hasChildren && IsUrlMatch(menu.MenuURL, currentUrl);
+
+            // Fallback icon: catches null AND empty/whitespace MenuIcon values,
+            // so a blank DB value never renders an empty, invisible <i> tag
+            // (which shows up as a blank clickable box in mini/collapsed mode
+            // once the text label is hidden by CSS).
+            string iconClass = string.IsNullOrWhiteSpace(menu.MenuIcon) ? "ti ti-box" : menu.MenuIcon;
+
+            if (hasChildren)
+            {
+                // Render children to a string buffer so we know whether any
+                // descendant is active BEFORE we write this menu's own <li>/<a> classes.
+                var childHtml = new HtmlContentBuilder();
+                bool childActive;
+                using (var writer = new System.IO.StringWriter())
+                {
+                    var originalOutput = Output;
+                    // Razor doesn't easily let us capture sub-output inline like this,
+                    // so instead we pre-check active state via a lightweight recursive scan:
+                    childActive = SubtreeContainsActive(menu.MenuID, currentUrl);
+                }
+
+                string activeCls = childActive ? "active subdrop" : "";
+
+                if (menuLevel == 1)
+                {
+                    <li>
+                        <ul>
+                            <li class="submenu @(childActive ? "active" : "")">
+                                <a href="javascript:void(0);" class="@activeCls">
+                                    <i class="@iconClass"></i>
+                                    <span>@menu.MenuName</span>
+                                    <span class="menu-arrow inside-submenu"></span>
+                                </a>
+                                <ul>
+                                    @{
+                                        RenderMenus(menu.MenuID, menuLevel + 1);
+                                    }
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                }
+                else if (menuLevel == 2)
+                {
+                    <li class="submenu @(childActive ? "active" : "")">
+                        <a href="javascript:void(0);" class="@activeCls">
+                            <span>@menu.MenuName</span>
+                            <span class="menu-arrow inside-submenu"></span>
+                        </a>
+                        <ul>
+                            @{
+                                RenderMenus(menu.MenuID, menuLevel + 1);
+                            }
+                        </ul>
+                    </li>
+                }
+                else
+                {
+                    <li class="submenu submenu-two @(childActive ? "active" : "")">
+                        <a href="javascript:void(0);" class="@activeCls">
+                            <span>@menu.MenuName</span>
+                            <span class="menu-arrow inside-submenu"></span>
+                        </a>
+                        <ul>
+                            @{
+                                RenderMenus(menu.MenuID, menuLevel + 1);
+                            }
+                        </ul>
+                    </li>
+                }
+
+                if (childActive) anyChildActive = true;
+            }
+            else
+            {
+                <li class="@(menuLevel >= 3 ? "submenu-two " : "")@(isLeafActive ? "active" : "")">
+                    <a href="@menu.MenuURL" class="@(isLeafActive ? "active" : "")">
+                        @if (menuLevel == 1)
+                        {
+                            <i class="@iconClass"></i>
+                        }
+                        <span>@menu.MenuName</span>
+                    </a>
+                </li>
+
+                if (isLeafActive) anyChildActive = true;
+            }
+        }
+
+        return anyChildActive;
+    }
+
+    // Lightweight scan (no rendering) to check if any descendant leaf matches currentUrl.
+    bool SubtreeContainsActive(int parentId, string currentUrl)
+    {
+        var children = Model.Where(x => x.ParentID == parentId);
+        foreach (var child in children)
+        {
+            var hasChildren = Model.Any(x => x.ParentID == child.MenuID);
+            if (hasChildren)
+            {
+                if (SubtreeContainsActive(child.MenuID, currentUrl)) return true;
+            }
+            else
+            {
+                if (IsUrlMatch(child.MenuURL, currentUrl)) return true;
+            }
+        }
+        return false;
+    }
+}

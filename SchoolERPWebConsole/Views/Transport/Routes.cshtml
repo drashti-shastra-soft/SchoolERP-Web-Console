@@ -1,0 +1,161 @@
+@model SchoolERPWebConsole.Domain.RoutePageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Route Management";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+}
+
+@section Styles {
+    <style>
+        .dt-buttons {
+            display: none !important;
+        }
+    </style>
+}
+
+<!-- Page Header -->
+<div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Route List</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (p.CanAdd)
+        {
+            // <a href="javascript:void(0)" class="btn btn-primary top-btn" onclick="openAddModal()">
+            //     <i class="ti ti-plus me-1"></i> Add
+            // </a>
+            <a href="/Transport/AddRoute" class="btn btn-primary top-btn"><i class="ti ti-plus me-1"></i>Add</a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i> Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i> Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center top-btn" onclick="triggerExport(4)">
+                <i class="ti ti-printer me-1"></i>Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-flex">
+                <button class="btn btn-warning dropdown-toggle top-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(0)"><i class="ti ti-copy me-1"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(1)"><i class="ti ti-file-text me-1"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(2)"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport(3)"><i class="ti ti-file-description me-1"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <!-- Filters -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 ">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearchInput"
+                               placeholder="Search by route name..." style="min-width: 220px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12">
+        <div class="card shadow-tbl">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0" id="tblRoutes">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">SELECT</th>
+                                <th>ROUTE NAME</th>
+                                <th style="width: 100px;">STATUS</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (Model.Items != null && Model.Items.Any(x => x.RouteID > 0))
+                            {
+                                foreach (var item in Model.Items.Where(x => x.RouteID > 0))
+                                {
+                                    <tr class="item-row"
+                                        onclick="selectItem(@item.RouteID, this)"
+                                        style="cursor: pointer;">
+
+                                        <td class="ps-3">
+                                            <input type="checkbox"
+                                                   name="selectedItem"
+                                                   class="form-check-input routes-checkbox"
+                                                   value="@item.RouteID"
+                                                   onclick="event.stopPropagation();">
+                                        </td>
+
+                                        <td>
+                                            @item.RouteName
+                                        </td>
+
+                                        <td>
+                                            <div class="form-check form-switch"
+                                                 onclick="event.stopPropagation();">
+
+                                                <input class="form-check-input"
+                                                       type="checkbox"
+                                                       onchange="toggleStatus(@item.RouteID, this.checked)"
+                                                       @(item.IsActive ? "checked" : "")
+                                                       @(p.CanEdit ? "" : "disabled")>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.currentUserId = @JsonSerializer.Serialize(currentUserId);
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+    </script>
+    <script src="@Url.Content("~/assets/js/Routes.js")"></script>
+}

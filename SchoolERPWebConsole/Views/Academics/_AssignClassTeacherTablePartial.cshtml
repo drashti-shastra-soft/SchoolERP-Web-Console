@@ -1,0 +1,143 @@
+@model SchoolERPWebConsole.Domain.AssignClassTeacherPageViewModel
+@{
+    ViewData["Title"] = "Class Teachers";
+    var currentUserId = int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("UserId")?.Value, out var id) ? id : 0;
+
+    var p = Model.Permissions;  
+    var groupedAssignments = Model.Assignments ?? new List<ClassTeacherViewModel>();
+
+    int totalPages = Model.PageSize > 0
+               ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+               : 0;
+}
+
+<div class="col-xl-12">
+    <div class="card overflow-auto shadow-tbl">
+        <div class="card-body p-0 overflow-auto">
+            <div class="sticky-table">
+            <div class="table-responsive">
+                <table class="table table-nowrap mb-0" id="assignmentsTable">
+                    <thead>
+                            <tr class="bg-light">
+                                <th class="ps-4" style="width: 10%;">Select</th>
+                            <th style="width: 20%;">Class</th>
+                            <th style="width: 20%;">Section</th>
+                            <th>Class Teacher</th>
+                            <th>Created On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (groupedAssignments.Any())
+                        {
+                            foreach (var item in groupedAssignments)
+                            {
+                                
+                                <tr class="item-row" onclick="selectItem(this)"
+                                    data-class-id="@item.ClassID"
+                                    data-section-id="@item.SectionID"
+                                    data-staff-ids='@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(item.STAFFIDS))'>
+                                    @* <td>
+                                        <input type="checkbox"
+                                               class="form-check-input student-checkbox"
+                                               data-class-id="@item.ClassID"
+                                               data-section-id="@item.SectionID">
+
+                                    </td> *@
+                                        <td class="ps-4 text-center" style="cursor: pointer; vertical-align: middle;">
+                                            <div class="d-flex align-items-center justify-content-center" onclick="event.stopPropagation()">
+                                                <input type="checkbox"
+                                                       class="form-check-input student-checkbox"
+                                                       data-class-id="@item.ClassID"
+                                                       data-section-id="@item.SectionID">
+                                            </div>
+                                        </td>
+                                    <td>@item.ClassName</td>
+                                    <td>@item.SectionName</td>
+                                    <td>@item.TEACHERS</td>
+                                    <td>@item.CreatedOn.ToString("dd MMM yyyy")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center">No records found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <!-- ── Pagination ─────────────────────────────────────────────── -->
+                @if (totalPages > 1)
+                {
+                    <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                        <!-- Record info -->
+                        <div class="text-muted small">
+                            Showing
+                            <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                            –
+                            <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                            of
+                            <strong>@Model.TotalRecords</strong> users
+                        </div>
+
+                        <nav aria-label="Subject pagination">
+                            <ul class="pagination pagination-sm mb-0">
+
+                                <!-- First -->
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                        <i class="ti ti-chevrons-left"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Prev -->
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                        <i class="ti ti-chevron-left"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Page numbers — show 5 around current -->
+                                @{
+                                    int start = Math.Max(1, Model.PageNumber - 2);
+                                    int end = Math.Min(totalPages, start + 4);
+                                    start = Math.Max(1, end - 4);
+                                }
+                                @for (int pg = start; pg <= end; pg++)
+                                {
+                                    <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">@pg</a>
+                                    </li>
+                                }
+
+                                <!-- Next -->
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                        <i class="ti ti-chevron-right"></i>
+                                    </a>
+                                </li>
+
+                                <!-- Last -->
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                        <i class="ti ti-chevrons-right"></i>
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nav>
+
+                    </div>
+                }
+     
+            </div>
+            </div>
+        </div>
+    </div>
+</div>

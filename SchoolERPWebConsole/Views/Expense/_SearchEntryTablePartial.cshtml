@@ -1,0 +1,184 @@
+﻿@model SchoolERPWebConsole.Domain.AccountEntrySearchViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    var p = Model.Permissions;
+    var pageSize = Model.PageSize > 0
+       ? Model.PageSize
+       : 10;
+
+    var requestedPage = 1;
+
+    if (int.TryParse(
+        Context.Request.Query["pageIndex"],
+        out var queryPage))
+    {
+        requestedPage = queryPage;
+    }
+
+    var currentPage = requestedPage < 1
+        ? 1
+        : requestedPage;
+
+    var totalRecords = Math.Max(Model.TotalRecords, 0);
+
+    var totalPages = totalRecords == 0
+        ? 1
+        : (int)Math.Ceiling(
+            (double)totalRecords / pageSize
+          );
+
+    if (currentPage > totalPages)
+    {
+        currentPage = totalPages;
+    }
+
+    var firstRecord = totalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    var lastRecord = totalRecords == 0
+        ? 0
+        : Math.Min(currentPage * pageSize, totalRecords);
+
+    var searchTerm = Model.SearchKeyword ?? "";
+
+    // FIX: treat null OR empty as "no data" so the empty-state row always renders
+    var hasResults = Model.Results != null && Model.Results.Any();
+
+    // FIX: common querystring fragment reused on every pagination link so
+    // SearchType / DateFrom / DateTo / companyId / sessionID can never
+    // drift out of sync between links again.
+    string PageUrl(int pageIndex) =>
+        $"?pageIndex={pageIndex}" +
+        $"&pageSize={pageSize}" +
+        $"&search={Uri.EscapeDataString(searchTerm)}" +
+        $"&companyId={Model.CompanyId}" +
+        $"&sessionID={Model.SessionId}" +
+        $"&SearchType={Uri.EscapeDataString(Model.SearchType ?? "")}" +
+        $"&DateFrom={Uri.EscapeDataString(Model.DateFrom ?? "")}" +
+        $"&DateTo={Uri.EscapeDataString(Model.DateTo ?? "")}";
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table mb-0" id="resultsTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th class="ps-3">Name</th>
+                                <th>Invoice Number</th>
+                                <th>Expense Head</th>
+                                <th>Date</th>
+                                <th class="text-end pe-3">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (hasResults)
+                            {
+                                @foreach (var item in Model.Results)
+                                {
+                                    <tr>
+                                        <td class="ps-3">@item.Name</td>
+                                        <td>@item.InvoiceNo</td>
+                                        <td>@item.HeadName</td>
+                                        <td>@item.Date.ToString("dd-MM-yyyy")</td>
+                                        <td class="text-end pe-3">@item.Amount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            }                            
+                        </tbody>
+                        @if (hasResults)
+                        {
+                            <tfoot>
+                                <tr class="table-light fw-bold">
+                                    <td colspan="4" class="text-end ps-3 text-dark">Grand Total</td>
+                                    <td class="text-end pe-3 text-dark">@Model.TotalAmount.ToString("N2")</td>
+                                </tr>
+                            </tfoot>
+                        }
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalRecords > 0)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@firstRecord</strong>
+                                –
+                                <strong>@lastRecord</strong>
+                                of
+                                <strong>@totalRecords</strong>
+                                main menus
+                            </div>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Menu pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        @{
+                                            var previousPage = Math.Max(1, currentPage - 1);
+                                        }
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" href="@PageUrl(1)" aria-label="First page">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" href="@PageUrl(previousPage)" aria-label="Previous page">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @{
+                                            var startPage = Math.Max(1, currentPage - 2);
+                                            var endPage = Math.Min(totalPages, startPage + 4);
+
+                                            if (endPage - startPage < 4)
+                                            {
+                                                startPage = Math.Max(1, endPage - 4);
+                                            }
+                                        }
+
+                                        @for (var pg = startPage; pg <= endPage; pg++)
+                                        {
+                                            <li class="page-item @(pg == currentPage ? "active" : "")">
+                                                <a class="page-link" href="@PageUrl(pg)"
+                                                   aria-current="@(pg == currentPage ? "page" : null)">
+                                                    @pg
+                                                </a>
+                                            </li>
+                                        }
+
+                                        @{
+                                            var nextPage = Math.Min(totalPages, currentPage + 1);
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link" href="@PageUrl(nextPage)" aria-label="Next page">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link" href="@PageUrl(totalPages)" aria-label="Last page">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            }
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

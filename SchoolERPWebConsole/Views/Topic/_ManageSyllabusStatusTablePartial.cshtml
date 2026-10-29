@@ -1,0 +1,162 @@
+﻿@model SchoolERPWebConsole.Domain.LessonSyllabusStatusPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+
+@{
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+}
+
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="homeworkTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:70px;">S.No</th>
+                                <th>Lesson Topic</th>
+                                <th style="width:190px;">Topic Completion Date</th>
+                                <th style="width:130px;">Status</th>
+                                <th style="width:100px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.LessonSyllabusStatus != null && Model.LessonSyllabusStatus.Any())
+                            {
+                                foreach (var h in Model.LessonSyllabusStatus)
+                                {
+                                    var sNo = 1;
+                                    List<TopicResponseModel> Topics = new();
+                                    if (!string.IsNullOrWhiteSpace(h.TopicsJson))
+                                    {
+                                        Topics = JsonSerializer.Deserialize<List<TopicResponseModel>>(h.TopicsJson)
+                                        ?? new List<TopicResponseModel>();
+                                    }
+
+                                    <tr class="lesson-row">
+                                        <td data-label="S.No">@h.SNo</td>
+                                        <td data-label="Lesson Topic"><strong>@h.LessonName</strong></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                    foreach (var t in Topics)
+                                    {
+
+                                        <tr class="topic-row">
+                                            <td></td>
+                                            <td class="topic-cell" data-label="Lesson Topic">
+                                                <span class="text-accent fw-medium">@h.SNo .@sNo</span>
+                                                <span>@t.TopicName</span>
+                                            </td>
+                                            <td data-label="Completion Date">@(t.TopicCompletionDate?.ToString("dd-MM-yyyy"))</td>
+                                            <td data-label="Status">
+                                                @if (t.IsCompleted)
+                                                {
+                                                    <span class="badge topic-badge topic-badge-completed">Completed</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge topic-badge topic-badge-incomplete">Incomplete</span>
+                                                }
+                                            </td>
+                                            <td data-label="Action">
+                                                @if (p.CanEdit)
+                                                {
+                                                    <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                        <input class="form-check-input topic-status-switch" type="checkbox" @(t.IsCompleted ? "checked" : "") onchange="toggleStatus(@t.TopicMapId, this.checked)">
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+
+                                        sNo++;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td class="text-center py-4 text-muted" colspan="5">No Homework Data Found</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

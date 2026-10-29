@@ -1,0 +1,180 @@
+﻿@model SchoolERPWebConsole.Domain.AlumniEventAddPageViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Event Details";
+
+    string attachmentUrl = Model?.EditAlumniEvent.EventPhoto ?? "";
+    string ext = string.IsNullOrEmpty(attachmentUrl)
+        ? ""
+        : System.IO.Path.GetExtension(attachmentUrl).TrimStart('.').ToLowerInvariant();
+
+    var imageExts = new[] { "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg" };
+    var pdfExts = new[] { "pdf" };
+    var docExts = new[] { "doc", "docx" };
+    var excelExts = new[] { "xls", "xlsx", "csv" };
+
+    bool isImage = imageExts.Contains(ext);
+    bool isPdf = pdfExts.Contains(ext);
+    bool isDoc = docExts.Contains(ext);
+    bool isExcel = excelExts.Contains(ext);
+    bool isOther = !string.IsNullOrEmpty(attachmentUrl) && !isImage && !isPdf && !isDoc && !isExcel;
+}
+
+<!-- Page Header -->
+<div class="row">
+    <div class="col-xl-12">
+        <div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+            <div>
+                <h6 class="fw-bold mb-0">Event Details</h6>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+                <a href="/Alumni/Events" class="btn btn-secondary top-btn">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- Details Card -->
+    <div class="col-md-6 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <b>Events Details</b>
+                </li>
+                @if (Model != null)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Events Title :</span>
+                        <span>@Model?.EditAlumniEvent?.EventTitle</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Event Description :</span>
+                        <span>@Model?.EditAlumniEvent?.EventDescription</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">From Date :</span>
+                        <span>@Model?.EditAlumniEvent?.FromDate.ToString("dd MMM yyyy")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">To Date :</span>
+                        <span>@Model?.EditAlumniEvent?.ToDate.ToString("dd MMM yyyy")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Location :</span>
+                        <span>@Model?.EditAlumniEvent?.Location</span>
+                    </li>
+                    @if (Model.EditAlumniEvent.EventFor==2)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-dark">Session :</span>
+                            <span>@Model?.EditAlumniEvent?.SessionName</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-dark">Class :</span>
+                        <span>@Model?.EditAlumniEvent?.ClassName</span>
+                    </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="text-dark">Section :</span>
+                            <span>@Model?.EditAlumniEvent?.SectionNames</span>
+                        </li>
+                    }                    
+
+                }
+                else
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Events Title :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Event Description :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">From Date :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">To Date :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Location :</span> -</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <!-- Attachment Preview Card -->
+    <div class="col-md-6 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush h-100">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <b>Attachment</b>
+                    @if (!string.IsNullOrEmpty(attachmentUrl))
+                    {
+                        <a href="@attachmentUrl" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="ti ti-download me-1"></i> Download
+                        </a>
+                    }
+                </li>
+
+                <li class="list-group-item flex-grow-1 d-flex align-items-center justify-content-center" style="min-height:320px;">
+                    @if (string.IsNullOrEmpty(attachmentUrl))
+                    {
+                        <div class="text-center text-muted">
+                            <i class="ti ti-file-off" style="font-size:48px;"></i>
+                            <p class="mb-0 mt-2">No attachment available</p>
+                        </div>
+                    }
+                    else if (isImage)
+                    {
+                        <div class="text-center w-100">
+                            <img src="@attachmentUrl" alt="Attachment"
+                                 class="img-fluid rounded shadow-sm"
+                                 style="max-height:320px; cursor:pointer;"
+                                 data-bs-toggle="modal" data-bs-target="#attachmentPreviewModal" />
+                        </div>
+                    }
+                    else if (isPdf)
+                    {
+                        <div class="w-100">
+                            <iframe src="@attachmentUrl" style="width:100%; height:320px; border:0;" class="rounded"></iframe>
+                        </div>
+                    }
+                    else if (isDoc || isExcel || isOther)
+                    {
+                        <div class="text-center">
+                            @{
+                                string iconClass = isDoc ? "ti ti-file-type-doc text-primary"
+                                : isExcel ? "ti ti-file-type-xls text-success"
+                                : "ti ti-file text-secondary";
+                            }
+                            <i class="@iconClass" style="font-size:64px;"></i>
+                            <p class="mb-1 mt-2 fw-semibold">@System.IO.Path.GetFileName(attachmentUrl)</p>
+                            <p class="text-muted small mb-3">
+                                @(isDoc ? "Word Document" : isExcel ? "Excel Spreadsheet" : "File")
+                                — preview not supported in browser
+                            </p>
+                            <a href="@attachmentUrl" target="_blank" class="btn btn-primary btn-sm">
+                                <i class="ti ti-external-link me-1"></i> Open File
+                            </a>
+                        </div>
+                    }
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Image Full Preview Modal -->
+@if (isImage)
+{
+    <div class="modal fade" id="attachmentPreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Attachment Preview</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="@attachmentUrl" alt="Attachment" class="img-fluid rounded" />
+                </div>
+                <div class="modal-footer">
+                    <a href="@attachmentUrl" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="ti ti-external-link me-1"></i> Open Original
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}

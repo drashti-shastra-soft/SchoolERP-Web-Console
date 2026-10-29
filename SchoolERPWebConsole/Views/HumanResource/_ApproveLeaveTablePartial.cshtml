@@ -1,0 +1,171 @@
+﻿@*
+    ======================================================================
+    VIEW: Academics / Class.cshtml
+    PURPOSE: User interface for managing Classes and their Section mappings.
+    ======================================================================
+*@
+@model SchoolERPWebConsole.Domain.HRApplyLeavePageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+    var p = Model.Permissions;
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="applyLeaveTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:50px" class="ps-3">Select</th>                             
+                                <th>Staff</th>
+                                <th>Leave Type</th>
+                                <th>Duration</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Leaves != null)
+                            {
+                                foreach (var item in Model.Leaves.OrderByDescending(x => x.ApplyDate))
+                                {
+                                    var statusClass = item.Status == "Approved" ? "bg-light-success" :
+                                                      item.Status == "Disapproved" ? "bg-light-danger" : "bg-light-warning";
+
+                                    <tr class="item-row" onclick="selectItem(@item.ApplyLeaveID, this)">
+                                               @*  <td class="ps-3">
+                                                    <input type="checkbox" class="form-check-input leave-select-checkbox" value="@item.ApplyLeaveID" onclick="selectRow(@item.ApplyLeaveID, this)" />
+                                                </td> *@
+                                        <td class="ps-4 text-center"
+                                            style="cursor: pointer; vertical-align: middle;">
+
+                                            <div class="d-flex align-items-center justify-content-center"
+                                                 onclick="event.stopPropagation()" style="cursor: pointer;">
+
+                                                <input type="checkbox"
+                                                       name="selectedLeaveType"
+                                                       class="form-check-input leave-select-checkbox"
+                                                       onclick="selectItem(@item.ApplyLeaveID, this)"
+                                                       value="@item.ApplyLeaveID">
+                                            </div>
+                                        </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-sm bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width:36px;height:36px;">
+                                                            <span class="small fw-bold">@item.StaffName.Substring(0, 1)</span>
+                                                        </div>
+                                                        <div>
+                                                            <div class="text-dark">@item.StaffName</div>
+                                                            <div class="small text-muted">@item.StaffCode</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info-subtle text-info px-2">@item.LeaveTypeName</span>
+                                                    <div class="small text-muted mt-1" title="@item.Reason">
+                                                        <i class="ti ti-info-circle me-1"></i>@(item.Reason?.Length > 30 ? item.Reason.Substring(0, 30) + "..." : item.Reason)
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="small">
+                                                        <div class="text-dark">@item.FromDate.ToString("dd MMM yyyy")</div>
+                                                        <div class="">to @item.ToDate.ToString("dd MMM yyyy")</div>
+                                                    </div>
+                                                </td>
+                                                <td><span class="">@((item.ToDate - item.FromDate).Days + 1)</span></td>
+                                                <td>
+                                                    <span class="badge @statusClass px-2">@item.Status</span>
+                                            @if (!string.IsNullOrEmpty(item.Note))
+                                            {
+                                                            <div class="small text-muted mt-1" title="@item.Note">
+                                                                <i class="ti ti-message-dots me-1"></i>Admin: @(item.Note.Length > 20 ? item.Note.Substring(0, 20) + "..." : item.Note)
+                                                            </div>
+                                            }
+                                                </td>
+                                            </tr>
+                                }
+                                
+                            }
+                            
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=1&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber - 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link"
+                                               href="?pageIndex=@pg&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@(Model.PageNumber + 1)&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link"
+                                           href="?pageIndex=@totalPages&pageSize=@Model.PageSize&search=@Model.SearchTerm&companyId=@Model.CompanyId&sessionID=@Model.SessionId">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

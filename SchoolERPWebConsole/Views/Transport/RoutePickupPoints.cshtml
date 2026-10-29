@@ -1,0 +1,175 @@
+@model SchoolERPWebConsole.Domain.RoutePickupPointPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Route Pickup Points";
+    int currentUserId = 0;
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("UserId");
+        if (idClaim != null) int.TryParse(idClaim.Value, out currentUserId);
+    }
+    var p = Model.Permissions;
+    var items = Model.Items?.Where(x => x != null && x.RoutePickupPointID > 0).ToList()
+            ?? Model.Items?.Take(0).ToList();
+}
+
+<style>
+    .dt-buttons {
+        display: none !important;
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h6 class="fw-bold mb-0">Route Pickup Point List</h6>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-1">
+        @if (p.CanAdd)
+        {
+            // <a href="javascript:void(0)" class="btn btn-primary top-btn" onclick="openAddModal()">
+            //     <i class="ti ti-plus me-1"></i> Add
+            // </a>
+            <a href="/Transport/AddRoutePickupPoint" class="btn btn-primary top-btn"><i class="ti ti-plus me-1"></i>Add</a>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnEdit" class="btn btn-info top-btn" disabled onclick="editSelected()">
+                <i class="ti ti-pencil me-1"></i> Edit
+            </button>
+        }
+        @if (p.CanDelete)
+        {
+            <button id="btnDelete" class="btn btn-danger top-btn" disabled onclick="deleteSelected()">
+                <i class="ti ti-trash me-1"></i> Delete
+            </button>
+        }
+        @if (p.CanEdit)
+        {
+            <button id="btnActive" class="btn btn-success top-btn" disabled onclick="toggleStatus(0,true)">
+                <i class="ti ti-circle-check"></i> Active
+            </button>
+            <button id="btnInactive" class="btn btn-danger top-btn" disabled onclick="toggleStatus(0,false)">
+                <i class="ti ti-circle-x"></i> Inactive
+            </button>
+        }
+        @if (p.CanPrint)
+        {
+            <button class="btn btn-secondary d-inline-flex align-items-center shadow-sm top-btn" onclick="triggerExport('print')">
+                <i class="ti ti-printer me-1"></i> Print
+            </button>
+        }
+        @if (p.CanExport)
+        {
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-warning dropdown-toggle d-inline-flex align-items-center shadow-sm top-btn" type="button" data-bs-toggle="dropdown">
+                    <i class="ti ti-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('copy')"><i class="ti ti-copy me-2"></i>Copy</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('csv')"><i class="ti ti-file-text me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('excel')"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="javascript:void(0)" onclick="triggerExport('pdf')"><i class="ti ti-file-description me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+
+    <!-- Filters -->
+    <div class="col-md-12">
+        <div class="card shadow-tbl-outer mb-2">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="position-relative border d-flex align-items-center rounded-2 px-3 ">
+                        <i class="fas fa-search search-icon-input"></i>
+                        <input type="text" class="form-control border-0 ps-2" id="txtSearchInput"
+                               placeholder="Search by route,point..." style="min-width: 220px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12">
+        <div class="card shadow-tbl">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0" id="tblRPP">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width: 50px;">Select</th>
+                                <th>Route Name</th>
+                                <th>Pickup Point</th>
+                                <th>Distance (KM)</th>
+                                <th>Pickup Time</th>
+                                <th>Monthly Fees</th>
+                                <th style="width: 100px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in items)
+                            {
+                                <tr class="item-row" onclick="selectItem(@item.RoutePickupPointID, this)" style="cursor: pointer;">
+                                    <td class="ps-3">
+                                        <input type="checkbox" name="selectedItem"
+                                               class="form-check-input student-checkbox"
+                                               value="@item.RoutePickupPointID">
+                                    </td>
+                                    <td>@(item.RouteName?.ToUpper())</td>
+                                    <td>@item.PickupPointName</td>
+                                    <td>@(item.Distance?.ToString("N2") ?? "0.00")</td>
+                                    <td>@(string.IsNullOrEmpty(item.PickupTime) ? "---" : item.PickupTime)</td>
+                                    <td class="text-primary fw-semibold">@(item.MonthlyFees?.ToString("N2") ?? "0.00")</td>
+                                    <td>
+                                        <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                            <input class="form-check-input" type="checkbox"
+                                                   onchange="toggleStatus(@item.RoutePickupPointID, this.checked)"
+                                                   @(item.IsActive ? "checked" : "")
+                                                   @(p.CanEdit ? "" : "disabled")>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts {
+    <script>
+        window.currentUserId = @JsonSerializer.Serialize(currentUserId);
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+        window.canPrint = @JsonSerializer.Serialize(p.CanPrint);
+        window.canExport = @JsonSerializer.Serialize(p.CanExport);
+    </script>
+    <script src="@Url.Content("~/assets/js/routepickuppoint.js")?v=@DateTime.Now.Ticks"></script>
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 38px !important;
+            border: 1px solid #dee2e6 !important;
+            display: flex;
+            align-items: center;
+        }
+
+        .select2-container {
+            z-index: 1060 !important;
+        }
+        /* Ensure Select2 is above modal */
+        .shadow-tbl {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+}
+

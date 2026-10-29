@@ -1,0 +1,157 @@
+﻿@model SchoolERPWebConsole.Domain.HRDepartmentPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{    
+    var p = Model.Permissions;
+    int totalPages = Model.PageSize > 0
+                   ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+                   : 0;
+
+    // Common query-string tail so every pagination link keeps all active filters.
+    // NOTE: kept as a local function so any future filter only needs adding here once.
+    string PageLink(int pg) =>
+        $"?pageIndex={pg}&pageSize={Model.PageSize}&search={Model.SearchTerm}" +
+        $"&companyId={Model.CompanyId}&publisherId={Model.PublisherId}" +
+        $"&authorId={Model.AuthorId}&subjectId={Model.SubjectId}" +
+        $"&categoryId={Model.CategoryId}&languageId={Model.LanguageId}" +
+        $"&seriesId={Model.SeriesId}&documentId={Model.DocumentId}" +
+        $"&isActive={Model.IsActiveFilter}&sortColumn={Model.SortColumn}&sortDir={Model.SortDir}";
+}
+<div class="col-xl-12">
+    <div class="card shadow-tbl overflow-auto">
+        <div class="card-body p-0">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table table-nowrap mb-0" id="tblBooks">
+                        <thead>
+                            <tr class="bg-light item-row">
+                                <th style="width: 50px;">Select</th>
+                                <th>Book Title</th>
+                                <th>Book No</th>
+                                <th>Publisher Name</th>
+                                <th>Author Names</th>
+                                <th>Price</th>
+                                <th>Post Date</th>
+                                <th>Status</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.ItemsBooks != null)
+                            {
+                                @foreach (var c in Model.ItemsBooks)
+                                {
+                                    <tr class="item-row" style="cursor: pointer;">
+                                        <td class="ps-4 text-center">
+                                            <input type="checkbox" name="selectedClass" style="cursor: pointer; vertical-align: middle;"
+                                                   class="form-check-input student-checkbox" onclick="selectItem(@c.BookID, this)"
+                                                   value="@c.BookID">
+
+                                        </td>
+                                        <td>
+                                            <a href="/Library/BookDetails/@c.BookID" class="btn btn-sm btn-white border px-2 py-1" title="Set Accession Status">
+                                                @c.BookTitle
+                                            </a>
+                                        </td>
+                                        <td>@c.BookNo</td>
+                                        <td>@c.PublisherName</td>
+                                        <td>@c.AuthorNames</td>
+                                        <td>@c.BookPrice</td>
+                                        <td>@c.PostDate?.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            @if (p.CanEdit)
+                                            {
+                                                <div class="form-check form-switch" onclick="event.stopPropagation()">
+                                                    <input style="cursor: pointer;" class="form-check-input class-status-switch" type="checkbox" @(c.IsActive ? "checked" : "") onchange="toggleStatus(@c.BookID, this.checked, this)">
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge @(c.IsActive ? "bg-success" : "bg-secondary")">@(c.IsActive ? "Active" : "Inactive")</span>
+                                            }
+                                        </td>
+
+                                    </tr>
+                                }
+
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+
+                    </table>
+                    <!-- ── Pagination ─────────────────────────────────────────────── -->
+                    @if (totalPages > 1)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+                            <!-- Record info -->
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                                –
+                                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                                of
+                                <strong>@Model.TotalRecords</strong> users
+                            </div>
+
+                            <nav aria-label="Subject pagination">
+                                <ul class="pagination pagination-sm mb-0">
+
+                                    <!-- First -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link" href="@PageLink(1)">
+                                            <i class="ti ti-chevrons-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Prev -->
+                                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                        <a class="page-link" href="@PageLink(Model.PageNumber - 1)">
+                                            <i class="ti ti-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Page numbers — show 5 around current -->
+                                    @{
+                                        int start = Math.Max(1, Model.PageNumber - 2);
+                                        int end = Math.Min(totalPages, start + 4);
+                                        start = Math.Max(1, end - 4);
+                                    }
+                                    @for (int pg = start; pg <= end; pg++)
+                                    {
+                                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                            <a class="page-link" href="@PageLink(pg)">@pg</a>
+                                        </li>
+                                    }
+
+                                    <!-- Next -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link" href="@PageLink(Model.PageNumber + 1)">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Last -->
+                                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                        <a class="page-link" href="@PageLink(totalPages)">
+                                            <i class="ti ti-chevrons-right"></i>
+                                        </a>
+                                    </li>
+
+                                </ul>
+                            </nav>
+
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

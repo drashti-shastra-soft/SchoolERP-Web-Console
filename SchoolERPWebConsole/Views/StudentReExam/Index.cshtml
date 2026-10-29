@@ -1,0 +1,170 @@
+﻿@model SchoolERPWebConsole.Domain.StudentReExamAddViewModel
+@{
+    ViewData["Title"] = "Student ReExam";
+    Layout = "_Layout"; // adjust to your shared layout
+    var p = Model.Permissions;
+}
+
+@* =========================================================
+   Student ReExam
+   - Filters: Class, Section, Exam (Section + Exam are loaded by JS)
+   - Buttons: EDIT / SAVE / RESET
+   - Grid: Roll No. | Student ID | Student Name | Father Name | Re-Exam
+   - All events are bound in StudentReExam.js (NO inline onchange handlers,
+     otherwise every change fires twice).
+   ========================================================= *@
+
+<div class="sre-wrapper">
+
+    <div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+        <div></div>
+        <div class="d-flex align-items-center flex-wrap gap-1">
+            @if (p.CanEdit)
+            {
+                <button class="btn btn-primary top-btn" id="btnEdit" disabled>
+                    <i class="ti ti-edit me-1"></i> EDIT
+                </button>
+            }
+            @if (p.CanAdd || p.CanEdit)
+            {
+                <button class="btn btn-secondary top-btn" id="btnSave" disabled>
+                    <i class="ti ti-device-floppy me-1"></i> SAVE
+                </button>
+            }
+            <button class="btn btn-dark top-btn" id="btnReset">
+                <i class="ti ti-refresh me-1"></i> RESET
+            </button>
+        </div>
+    </div>
+
+    <div id="reExamPageNotice"></div>
+
+    <div class="sre-panel">
+        <div class="sre-panel-header">Student Re-Exam</div>
+
+        <!-- Filters -->
+        <div class="sre-filters">
+            <div class="sre-filter">
+                <label>Class:<span class="text-danger">*</span></label>
+                <select id="ddlClass" class="form-control form-control-sm">
+                    <option value="">-- Select --</option>
+                    @foreach (var c in Model.Class)
+                    {
+                        <option value="@c.ClassID">@c.ClassName</option>
+                    }
+                </select>
+            </div>
+            <div class="sre-filter">
+                <label>Section:<span class="text-danger">*</span></label>
+                <select id="ddlSection" class="form-control form-control-sm" disabled>
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+            <div class="sre-filter">
+                <label>Exam:<span class="text-danger">*</span></label>
+                <select id="ddlExam" class="form-control form-control-sm" disabled>
+                    <option value="">-- Select --</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="sre-grid-scroll">
+            <table class="table sre-table" id="tblStudentReExam">
+                <thead>
+                    <tr>
+                        <th style="width:70px;">Roll No.</th>
+                        <th style="width:130px;">Student ID</th>
+                        <th>Student Name</th>
+                        <th>Father Name</th>
+                        <th style="width:60px;">
+                            <input type="checkbox" id="chkSelectAll" disabled title="Select / deselect all">
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="tblBody">
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            Select Class, Section and Exam to load students.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sre-footer">
+            T.ST. : <span id="totalStudents">0</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sre-panel {
+        border: 1px solid #ccd6e5;
+    }
+
+    .sre-panel-header {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .sre-filters {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        padding: 12px;
+    }
+
+    .sre-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .sre-filter label {
+            margin: 0;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .sre-filter select {
+            min-width: 150px;
+        }
+
+    .sre-grid-scroll {
+        max-height: 480px;
+        overflow-y: auto;
+    }
+
+    .sre-table {
+        margin: 0;
+    }
+
+        .sre-table th, .sre-table td {
+            vertical-align: middle;
+        }
+
+            .sre-table td:nth-child(3),
+            .sre-table td:nth-child(4) {
+                text-align: left;
+            }
+
+            .sre-table td:nth-child(3) {
+                font-weight: 600;
+            }
+
+        .sre-table input[type="checkbox"]:disabled {
+            opacity: 0.5;
+        }
+
+    .sre-footer {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 8px 12px;
+        font-weight: 700;
+    }
+</style>
+
+<script src="~/assets/js/StudentReExam.js"></script>

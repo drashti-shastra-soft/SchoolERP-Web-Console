@@ -1,0 +1,429 @@
+﻿@model SchoolERPWebConsole.Domain.StudentListPageViewModel
+@using System.Security.Claims
+@using System.Linq
+@using System.Collections.Generic
+@{
+    ViewData["Title"] = "Students List";
+
+    int currentUserId = 0;
+
+    if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                      ?? User.FindFirst("UserId");
+
+        if (idClaim != null)
+        {
+            int.TryParse(idClaim.Value, out currentUserId);
+        }
+    }
+
+    var p = Model.Permissions;
+
+    var activeCustomFieldsOnTable = Model.CustomFields?
+        .Where(f => f.IsActive && f.OnTable)
+        .OrderBy(f => f.DisplayOrder)
+        .ToList() ?? new List<FieldModel>();
+
+    int totalPages = Model.PageSize > 0
+        ? (int)Math.Ceiling((double)Model.TotalRecords / Model.PageSize)
+        : 0;
+
+    int startPage = Math.Max(1, Model.PageNumber - 2);
+    int endPage = Math.Min(totalPages, startPage + 4);
+
+    startPage = Math.Max(1, endPage - 4);
+
+    // Preserve current filters and view type.
+    string PageUrl(int pageNum, string viewType) =>
+        Url.Action("Students", "StudentInformation", new
+        {
+            page = pageNum,
+            pageSize = Model.PageSize,
+            classId = Model.SelectedClassId,
+            sectionId = Model.SelectedSectionId,
+            search = Model.SearchTerm,
+            viewType = viewType
+        })!;
+}
+
+@* ==================== CARD VIEW ==================== *@
+
+<div class="col-xl-12 @(Model.ViewType == "card" ? "" : "d-none")" id="card-v">
+
+    <div class="row">
+
+        <div id="tblMeta"
+             data-total="@Model.TotalRecords"
+             class="d-none"></div>
+
+        @if (Model.Students != null && Model.Students.Any())
+        {
+            @foreach (var student in Model.Students)
+            {
+                <div class="col-xl-6 col-md-12 student-item-row"
+                     onclick="selectStudent(@student.StudentID, this)"
+                     style="cursor: pointer;">
+
+                    <div class="card shadow-tbl-outer mb-2">
+
+                        <input type="checkbox"
+                               name="selectedStudent"
+                               class="form-check-input student-checkbox me-3 position-absolute m-1"
+                               value="@student.StudentID" />
+
+                        <div class="card-body d-flex align-items-center flex-sm-nowrap flex-wrap row-gap-3">
+
+                            <div class="me-3 d-flex align-items-center">
+
+                                <div class="doctor-profile-img">
+
+                                    @if (!string.IsNullOrEmpty(student.StudentPhoto))
+                                    {
+                                        <img src="@Url.Content("~" + student.StudentPhoto)"
+                                             class="rounded"
+                                             alt="Student Photo"
+                                             style="width: 100%; height: 130px;" />
+                                    }
+                                    else
+                                    {
+                                        <img src="/assets/img/profiles/avatar-01.jpg"
+                                             class="rounded"
+                                             alt="Default Photo"
+                                             style="width: 100%; height: 100%; object-fit: cover;" />
+                                    }
+
+                                </div>
+
+                            </div>
+
+                            <div class="flex-fill">
+
+                                <h6 class="mb-2 fs-15">
+                                    <a href="/StudentInformation/studentDetails/@student.StudentID"
+                                       class="text-primary"
+                                       onclick="event.stopPropagation()">
+                                        @student.FullName
+                                    </a>
+                                </h6>
+
+                                <div class="d-flex justify-content-between mb-1 gap-2">
+
+                                    <div class="flex-fill">
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Class</span> :
+                                            @student.ClassName (@student.SectionName)
+                                        </p>
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Admission No</span> :
+                                            @(student.AdmissionNo ?? "-")
+                                        </p>
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Roll No</span> :
+                                            @(student.RollNo ?? "-")
+                                        </p>
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Mobile</span> :
+                                            @(student.MobileNo ?? "-")
+                                        </p>
+
+                                    </div>
+
+                                    <div class="flex-fill">
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Father Name</span> :
+                                            @(student.FatherName ?? "-")
+                                        </p>
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">DOB</span> :
+                                            @(student.DOB?.ToString("dd-MM-yyyy") ?? "-")
+                                        </p>
+
+                                        <p class="mb-2 fs-13">
+                                            <span class="text-dark">Gender</span> :
+                                            @student.Gender
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12 text-center py-5">
+                <h5 class="text-muted">
+                    No students found matching the criteria.
+                </h5>
+            </div>
+        }
+
+    </div>
+
+    @* Card View Pagination *@
+
+    @if (totalPages > 1)
+    {
+        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 p-1">
+
+            <div class="text-muted small">
+                Showing
+                <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                –
+                <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                of
+                <strong>@Model.TotalRecords</strong> students
+            </div>
+
+            <nav aria-label="Student pagination">
+
+                <ul class="pagination pagination-sm mb-0">
+
+                    @* First *@
+                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@PageUrl(1, "card")"
+                           aria-label="First page">
+                            <i class="ti ti-chevrons-left"></i>
+                        </a>
+                    </li>
+
+                    @* Previous *@
+                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@PageUrl(Math.Max(1, Model.PageNumber - 1), "card")"
+                           aria-label="Previous page">
+                            <i class="ti ti-chevron-left"></i>
+                        </a>
+                    </li>
+
+                    @* Page Numbers *@
+                    @for (int pg = startPage; pg <= endPage; pg++)
+                    {
+                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                            <a class="page-link"
+                               href="@PageUrl(pg, "card")">
+                                @pg
+                            </a>
+                        </li>
+                    }
+
+                    @* Next *@
+                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@PageUrl(Math.Min(totalPages, Model.PageNumber + 1), "card")"
+                           aria-label="Next page">
+                            <i class="ti ti-chevron-right"></i>
+                        </a>
+                    </li>
+
+                    @* Last *@
+                    <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                        <a class="page-link"
+                           href="@PageUrl(totalPages, "card")"
+                           aria-label="Last page">
+                            <i class="ti ti-chevrons-right"></i>
+                        </a>
+                    </li>
+
+                </ul>
+
+            </nav>
+
+        </div>
+    }
+
+</div>
+
+
+@* ==================== LIST VIEW ==================== *@
+
+<div class="col-xl-12 @(Model.ViewType == "list" ? "" : "d-none")" id="list-v">
+
+    <div class="card shadow-tbl">
+
+        <div class="card-body">
+
+            <div class="table-responsive">
+
+                <div class="student-table-scroll">
+
+                    <table class="table table-nowrap mb-0" id="tblStudents">
+
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Select</th>
+                                <th>Admission No</th>
+                                <th>Student Name</th>
+                                <th>Roll No.</th>
+                                <th>Class</th>
+                                <th>Father Name</th>
+                                <th>DOB</th>
+                                <th>Gender</th>
+                                <th>Mobile Number</th>
+
+                                @foreach (var field in activeCustomFieldsOnTable)
+                                {
+                                    <th>@field.FieldName</th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @if (Model.Students != null && Model.Students.Any())
+                            {
+                                @foreach (var student in Model.Students)
+                                {
+                                    <tr class="student-item-row" style="cursor: pointer;">
+
+                                        <td class="ps-3">
+                                            <input type="checkbox"
+                                                   name="selectedStudent"
+                                                   class="form-check-input student-checkbox"
+                                                   value="@student.StudentID"
+                                                   onclick="selectStudent(@student.StudentID, this)" />
+                                        </td>
+
+                                        <td>@student.AdmissionNo</td>
+
+                                        <td>
+                                            <a class="text-primary"
+                                               href="/StudentInformation/studentDetails/@student.StudentID">
+                                                @student.FullName
+                                            </a>
+                                        </td>
+
+                                        <td>@student.RollNo</td>
+
+                                        <td>@student.ClassName (@student.SectionName)</td>
+
+                                        <td>@student.FatherName</td>
+
+                                        <td>@(student.DOB?.ToString("dd-MM-yyyy") ?? "-")</td>
+
+                                        <td>@student.Gender</td>
+
+                                        <td>@student.MobileNo</td>
+
+                                        @foreach (var field in activeCustomFieldsOnTable)
+                                        {
+                                            var valObj = student.CustomFieldValues?
+                                            .FirstOrDefault(v => v.FieldID == field.FieldId);
+
+                                            <td>@(valObj?.FieldValue ?? "-")</td>
+                                        }
+
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="@(9 + activeCustomFieldsOnTable.Count)"
+                                        class="text-center py-4">
+                                        <span class="text-muted">No students found.</span>
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                @* List View Pagination *@
+
+                @if (totalPages > 1)
+                {
+                    <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3 px-3">
+
+                        <div class="text-muted small">
+                            Showing
+                            <strong>@(((Model.PageNumber - 1) * Model.PageSize) + 1)</strong>
+                            –
+                            <strong>@(Math.Min(Model.PageNumber * Model.PageSize, Model.TotalRecords))</strong>
+                            of
+                            <strong>@Model.TotalRecords</strong> students
+                        </div>
+
+                        <nav aria-label="Student pagination">
+
+                            <ul class="pagination pagination-sm mb-0">
+
+                                @* First *@
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="@PageUrl(1, "list")"
+                                       aria-label="First page">
+                                        <i class="ti ti-chevrons-left"></i>
+                                    </a>
+                                </li>
+
+                                @* Previous *@
+                                <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="@PageUrl(Math.Max(1, Model.PageNumber - 1), "list")"
+                                       aria-label="Previous page">
+                                        <i class="ti ti-chevron-left"></i>
+                                    </a>
+                                </li>
+
+                                @* Page Numbers *@
+                                @for (int pg = startPage; pg <= endPage; pg++)
+                                {
+                                    <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                                        <a class="page-link"
+                                           href="@PageUrl(pg, "list")">
+                                            @pg
+                                        </a>
+                                    </li>
+                                }
+
+                                @* Next *@
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="@PageUrl(Math.Min(totalPages, Model.PageNumber + 1), "list")"
+                                       aria-label="Next page">
+                                        <i class="ti ti-chevron-right"></i>
+                                    </a>
+                                </li>
+
+                                @* Last *@
+                                <li class="page-item @(Model.PageNumber >= totalPages ? "disabled" : "")">
+                                    <a class="page-link"
+                                       href="@PageUrl(totalPages, "list")"
+                                       aria-label="Last page">
+                                        <i class="ti ti-chevrons-right"></i>
+                                    </a>
+                                </li>
+
+                            </ul>
+
+                        </nav>
+
+                    </div>
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

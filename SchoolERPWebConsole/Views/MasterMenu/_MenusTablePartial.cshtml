@@ -1,0 +1,361 @@
+﻿@*
+    ======================================================================
+    VIEW: MasterMenu / Index.cshtml
+    PURPOSE: User interface for managing Menus (main menus + sub-menu tree).
+    ======================================================================
+
+    NOTE (v2 fix applied — replaces the old flatten-everything approach):
+
+    OLD BEHAVIOUR (broken):
+    sp_Menus_GETALLPAGEINDEX flattened the ENTIRE tree and paged that flat
+    list. A page boundary could land in the middle of a parent's children,
+    so children could be on a different page than their parent — that's
+    why every row showed a "Root" badge and the indentation looked broken
+    in the grid.
+
+    NEW BEHAVIOUR:
+    - The SP now pages ONLY main/root menus (ParentID IS NULL). Model.Menus
+      contains exactly one row per MAIN menu for the current page.
+    - Each main-menu row carries its ENTIRE sub-menu subtree pre-serialized
+      as JSON in menu.SubMenusJson (added to MenuViewModel — see repo
+      mapping, just copy the SP's SUBMENUSJSON column into it).
+    - The "+" icon on a main-menu row expands its children CLIENT-SIDE by
+      parsing that JSON (see MasterMenu.js -> toggleNode()). No AJAX call
+      needed to expand, and pagination can never split a tree in half
+      again because a full subtree always travels with its root.
+*@
+@model SchoolERPWebConsole.Domain.MenusPageViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text.Encodings.Web
+@using System.Text
+@{
+    var p = Model.Permissions;
+    var menus = Model.Menus ?? new List<MenuViewModel>();
+
+    var pageSize = Model.PageSize > 0
+        ? Model.PageSize
+        : 10;
+
+    var requestedPage = 1;
+
+    if (int.TryParse(
+        Context.Request.Query["pageIndex"],
+        out var queryPage))
+    {
+        requestedPage = queryPage;
+    }
+
+    var currentPage = requestedPage < 1
+        ? 1
+        : requestedPage;
+
+    var totalRecords = Math.Max(Model.TotalRecords, 0);
+
+    var totalPages = totalRecords == 0
+        ? 1
+        : (int)Math.Ceiling(
+            (double)totalRecords / pageSize
+          );
+
+    if (currentPage > totalPages)
+    {
+        currentPage = totalPages;
+    }
+
+    var firstRecord = totalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    var lastRecord = totalRecords == 0
+        ? 0
+        : Math.Min(currentPage * pageSize, totalRecords);
+
+    var searchTerm = Model.SearchTerm ?? "";
+}
+<style>
+    #menusTable tbody tr.tree-row {
+        display: table-row;
+    }
+
+        #menusTable tbody tr.tree-row.child-row {
+            background-color: #fafbfc;
+        }
+
+    .tree-toggle {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+    }
+
+    .tree-toggle-spacer {
+        display: inline-block;
+        width: 18px;
+    }
+
+    #menusTable tbody tr.tree-row.row-selected {
+        background-color: var(--primary-transparent, #eef2ff) !important;
+        box-shadow: inset 3px 0 0 var(--primary, #4f46e5);
+    }
+
+        #menusTable tbody tr.tree-row.row-selected td {
+            color: inherit !important;
+        }
+
+        #menusTable tbody tr.tree-row.row-selected .badge-key,
+        #menusTable tbody tr.tree-row.row-selected .badge {
+            opacity: 1;
+        }
+
+    #menusTable tbody tr.tree-row:hover:not(.row-selected) {
+        background-color: #f8f9fa;
+    }
+</style>
+<div class="col-xl-12">
+    <div class="card shadow-tbl">
+        <div class="card-body">
+            <div class="sticky-table">
+                <div class="table-responsive">
+                    <table class="table" id="menusTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width:30px;"></th>
+                                <th>Select</th>
+                                <th style="width:50px;">ID</th>
+                                <th>Menu Name</th>
+                                <th>Display Label</th>
+                                <th>URL / Route</th>
+                                <th>Key</th>
+                                <th style="width:60px;">Order</th>
+                                <th>Parent</th>
+                                <th style="width:80px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (menus.Any())
+                            {
+
+
+                                @foreach (var menu in menus)
+                                {
+                                    var submenuJson = string.IsNullOrWhiteSpace(menu.SubMenusJson)
+                                    ? "[]"
+                                    : menu.SubMenusJson.Trim();
+
+                                    var submenuBase64 = Convert.ToBase64String(
+                                    Encoding.UTF8.GetBytes(submenuJson)
+                                    );
+
+                                    var hasChildren = submenuJson != "[]";
+
+                                    <tr class="tree-row root-row"
+                                        data-id="@menu.MenuID"
+                                        data-root-id="@menu.MenuID"
+                                        data-parent-id=""
+                                        data-level="1"
+                                        data-expanded="0"
+                                        data-submenus-base64="@submenuBase64"
+                                        onclick="selectRow(@menu.MenuID, this)">
+
+                                        <td class="text-center">
+                                            @if (p.CanEdit)
+                                            {
+                                                <i class="ti ti-selector drag-handle cursor-move"></i>
+                                            }
+                                        </td>
+
+                                        <td>
+                                            <input type="checkbox"
+                                                   name="selectedMenu"
+                                                   value="@menu.MenuID"
+                                                   class="form-check-input student-checkbox"
+                                                   onclick="event.stopPropagation(); selectItem(@menu.MenuID, this)" />
+                                        </td>
+
+                                        <td>@menu.MenuID</td>
+
+                                        <td>
+                                            <div class="tree-cell d-flex align-items-center">
+                                                @if (hasChildren)
+                                                {
+                                                    <span class="tree-toggle"
+                                                          onclick="toggleNode('@menu.MenuID', event)">
+                                                        <i class="fas fa-plus"></i>
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="tree-toggle-spacer"></span>
+                                                }
+
+                                                <i class="@(menu.MenuIcon ?? "ti ti-box") tree-icon ms-1"></i>
+                                                <span class="ms-1">@menu.MenuName</span>
+                                            </div>
+                                        </td>
+
+                                        <td>@menu.DisplayLabel</td>
+                                        <td>@menu.MenuURL</td>
+
+                                        <td>
+                                            @if (!string.IsNullOrWhiteSpace(menu.MenuKey))
+                                            {
+                                                <span class="badge-key">@menu.MenuKey</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                        </td>
+
+                                        <td class="display-order-cell">@menu.DisplayOrder</td>
+
+                                        <td>
+                                            <span class="badge bg-light text-dark border">Root</span>
+                                        </td>
+
+                                        <td onclick="event.stopPropagation()">
+                                            @if (p.CanEdit)
+                                            {
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           role="switch"
+                                                    @(menu.IsActive ? "checked" : "")
+                                                           onchange="toggleStatus(@menu.MenuID, this.checked, this)"
+                                                           id="sw_@menu.MenuID" />
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge @(menu.IsActive ? "bg-success" : "bg-secondary")">
+                                                    @(menu.IsActive ? "Active" : "Inactive")
+                                                </span>
+                                            }
+                                        </td>
+                                    </tr>
+
+                                    <!-- Store JSON separately instead of putting it in a data attribute -->
+                                    <script type="application/json"
+                                            id="submenu-json-@menu.MenuID">@Html.Raw(menu.SubMenusJson)</script>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center py-4">
+                                        <span class="text-muted">No records found.</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- ── Pagination (now counts MAIN menus only) ───────────────── -->
+                    @if (totalRecords > 0)
+                    {
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2 mb-3">
+
+                            <div class="text-muted small">
+                                Showing
+                                <strong>@firstRecord</strong>
+                                –
+                                <strong>@lastRecord</strong>
+                                of
+                                <strong>@totalRecords</strong>
+                                main menus
+                            </div>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Menu pagination">
+                                    <ul class="pagination pagination-sm mb-0">
+
+                                        @{
+                                            var firstUrl =
+                                            $"?pageIndex=1&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            var previousPage = Math.Max(1, currentPage - 1);
+
+                                            var previousUrl =
+                                            $"?pageIndex={previousPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+                                        }
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@firstUrl"
+                                               aria-label="First page">
+                                                <i class="ti ti-chevrons-left"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@previousUrl"
+                                               aria-label="Previous page">
+                                                <i class="ti ti-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @{
+                                            var startPage = Math.Max(1, currentPage - 2);
+                                            var endPage = Math.Min(totalPages, startPage + 4);
+
+                                            if (endPage - startPage < 4)
+                                            {
+                                                startPage = Math.Max(1, endPage - 4);
+                                            }
+                                        }
+
+                                        @for (var pg = startPage; pg <= endPage; pg++)
+                                        {
+                                            var pageUrl =
+                                            $"?pageIndex={pg}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            <li class="page-item @(pg == currentPage ? "active" : "")">
+                                                <a class="page-link"
+                                                   href="@pageUrl"
+                                                   aria-current="@(pg == currentPage ? "page" : null)">
+                                                    @pg
+                                                </a>
+                                            </li>
+                                        }
+
+                                        @{
+                                            var nextPage = Math.Min(totalPages, currentPage + 1);
+
+                                            var nextUrl =
+                                            $"?pageIndex={nextPage}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+
+                                            var lastUrl =
+                                            $"?pageIndex={totalPages}&pageSize={pageSize}&search={Uri.EscapeDataString(searchTerm)}";
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@nextUrl"
+                                               aria-label="Next page">
+                                                <i class="ti ti-chevron-right"></i>
+                                            </a>
+                                        </li>
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link"
+                                               href="@lastUrl"
+                                               aria-label="Last page">
+                                                <i class="ti ti-chevrons-right"></i>
+                                            </a>
+                                        </li>
+
+                                    </ul>
+                                </nav>
+                            }
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,210 @@
+﻿@model SchoolERPWebConsole.Domain.CoScholasticMarksFeedingAddViewModel
+@{
+    ViewData["Title"] = "Co-Scholastic Marks Feeding";
+    Layout = "_Layout"; // adjust to your shared layout
+    var p = Model.Permissions;
+}
+
+@* =========================================================
+   Co-Scholastic Marks Feeding
+   Assumptions (adjust to match your actual project):
+   - Co-Scholastic subjects for Class/Section:
+     GET /CoScholasticMarksFeeding/GetCoScholasticByClassandSectionId?classId=&sectionId=
+   - Exams for Class:
+     GET /CoScholasticMarksFeeding/GetExamList?classId=
+   - Grade options (A+, A, B+, ...):
+     GET /CoScholasticMarksFeeding/GetGradeList
+   - Grid (students + existing grade) for Class/Section/Co-Scholastic/Exam:
+     GET /CoScholasticMarksFeeding/GetGridData?classId=&sectionId=&coScholasticId=&examId=
+   - Save: POST /CoScholasticMarksFeeding/SaveCoScholasticMarksFeeding
+   - Delete (checked rows): POST /CoScholasticMarksFeeding/DeleteCoScholasticMarksFeeding
+   - Sections come from /Academics/GetSectionsByClass/{classId}, same as the
+     other marks-entry screens in this app.
+   ========================================================= *@
+
+<div class="csmf-wrapper">
+
+    <div class="d-flex align-items-sm-center justify-content-between flex-wrap gap-2 mb-2">
+        <div></div>
+        <div class="d-flex align-items-center flex-wrap gap-1">
+            @if (p.CanEdit)
+            {
+                <button class="btn btn-warning top-btn" id="btnEdit">
+                    <i class="ti ti-edit me-1"></i> EDIT
+                </button>
+            }
+            @if (p.CanAdd || p.CanEdit)
+            {
+                <button class="btn btn-secondary top-btn" id="btnSave" disabled>
+                    <i class="ti ti-device-floppy me-1"></i> SAVE
+                </button>
+            }
+            @if (p.CanDelete)
+            {
+                <button class="btn btn-danger top-btn" id="btnDelete">
+                    <i class="ti ti-trash me-1"></i> DELETE
+                </button>
+            }
+            <button class="btn btn-dark top-btn" id="btnReset">
+                <i class="ti ti-refresh me-1"></i> RESET
+            </button>
+        </div>
+    </div>
+
+    <div class="csmf-panel">
+        <div class="csmf-panel-header">Marks Feeding</div>
+        <div class="csmf-panel-subheader">Student Info</div>
+
+        <!-- Filters -->
+        <div class="csmf-filters">
+            <div class="csmf-filter-row">
+                <div class="csmf-filter">
+                    <label>Class:<span class="text-danger">*</span></label>
+                    <select id="ddlClass" class="form-control form-control-sm" onchange="onClassChange()">
+                        <option value="">-- Select --</option>
+                        @foreach (var c in Model.Class)
+                        {
+                            <option value="@c.ClassID">@c.ClassName</option>
+                        }
+                    </select>
+                </div>
+                <div class="csmf-filter">
+                    <label>Section:<span class="text-danger">*</span></label>
+                    <select id="ddlSection" class="form-control form-control-sm" onchange="onSectionChange()">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="csmf-filter-row">
+                <div class="csmf-filter">
+                    <label>Co-Scholastic:<span class="text-danger">*</span></label>
+                    <select id="ddlCoScholastic" class="form-control form-control-sm" onchange="onCoScholasticChange()">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+                <div class="csmf-filter">
+                    <label>Exam:<span class="text-danger">*</span></label>
+                    <select id="ddlExam" class="form-control form-control-sm" onchange="onExamChange()">
+                        <option value="">-- Select --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="csmf-grid-scroll">
+            <table class="table csmf-table" id="tblCoScholasticMarksFeeding">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"><input type="checkbox" id="chkSelectAll" /></th>
+                        <th style="width:70px;">RollNo</th>
+                        <th style="width:120px;">SR Code</th>
+                        <th style="width:110px;">Student ID</th>
+                        <th>Father Name</th>
+                        <th>Student Name</th>
+                        <th style="width:140px;">Grade</th>
+                    </tr>
+                </thead>
+                <tbody id="tblBody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            Select Class, Section, Co-Scholastic and Exam to load students.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="csmf-footer">
+            T.ST. : <span id="totalStudents">0</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .csmf-panel {
+        border: 1px solid #ccd6e5;
+    }
+
+    .csmf-panel-header {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 6px 12px;
+        font-weight: 600;
+    }
+
+    .csmf-panel-subheader {
+        padding: 6px 12px;
+        font-weight: 600;
+        border-bottom: 1px solid #eee;
+    }
+
+    .csmf-filters {
+        padding: 12px;
+    }
+
+    .csmf-filter-row {
+        display: flex;
+        gap: 40px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .csmf-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 320px;
+    }
+
+        .csmf-filter label {
+            margin: 0;
+            white-space: nowrap;
+            font-weight: 600;
+            min-width: 90px;
+        }
+
+        .csmf-filter select {
+            min-width: 200px;
+            flex: 1;
+        }
+
+    .csmf-grid-scroll {
+        max-height: 480px;
+        overflow-y: auto;
+    }
+
+    .csmf-table {
+        margin: 0;
+    }
+
+        .csmf-table th, .csmf-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+            
+
+            .csmf-table td:nth-child(6) {
+                font-weight: 600;
+            }
+
+        .csmf-table select.gradeSelect {
+            min-width: 110px;
+        }
+
+        .csmf-table select:disabled {
+            background: #eee;
+            color: #666;
+        }
+
+    .csmf-footer {
+        background: #2b4a8b;
+        color: #fff;
+        padding: 8px 12px;
+        font-weight: 700;
+    }
+</style>
+
+<script src="~/assets/js/CoScholasticMarksFeeding.js">
+</script>

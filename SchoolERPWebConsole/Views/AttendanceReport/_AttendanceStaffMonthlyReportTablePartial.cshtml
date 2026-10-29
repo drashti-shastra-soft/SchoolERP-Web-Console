@@ -1,0 +1,109 @@
+﻿@model SchoolERPWebConsole.Domain.AttendanceMonthlyReportPageViewModel
+@{
+    var p = Model.Permissions;
+
+    // Fast day-meta lookup for header shading + tooltips, keyed by DAYCOL (e.g. "D01").
+    var dayMeta = Model.Days.ToDictionary(d => d.DAYCOL, d => d, StringComparer.OrdinalIgnoreCase);
+
+    string LetterClass(string letter) => letter switch
+    {
+        "P" => "p",
+        "L" => "l",
+        "A" => "a",
+        "H" => "h",
+        _ => ""
+    };
+}
+<div class="card shadow-tbl-outer">
+    <div class="card-body p-2">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle mb-0" id="AttendanceMonthlyTable" data-row-count="@(Model.Students?.Count ?? 0)">
+                <thead class="table-light">
+                    <tr>
+                        <th>STAFF CODE</th>
+                        <th>STAFF NAME</th>
+                        <th>ROLE NAME</th>
+                        <th>P</th>
+                        <th>L</th>
+                        <th>A</th>
+                        <th>H</th>
+                        <th>%</th>
+                        @foreach (var dayCol in Model.DayColumns)
+                        {
+                            var meta = dayMeta.GetValueOrDefault(dayCol);
+                            var isHoliday = meta?.IsHoliday == true;
+                            <th class="day-col @(isHoliday ? "holiday" : "")"
+                                title="@(isHoliday ? (meta.HOLIDAYNAME ?? "Holiday") : meta?.WEEKDAYNAME)">
+                                @(meta?.DayNumber.ToString() ?? dayCol.TrimStart('D').TrimStart('0'))<br />
+                                <span class="text-muted" style="font-weight:400;">@meta?.WeekdayShort</span>
+                            </th>
+                        }
+
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Staffs != null && Model.Staffs.Any())
+                    {
+                        foreach (var s in Model.Staffs)
+                        {
+                            <tr class="student-row" data-id="@s.STAFFID">
+                                <td>@s.STAFFCODE</td>
+                                <td>@s.STAFFNAME</td>
+                                <td>@s.ROLENAME</td>
+                                <td>@s.P</td>
+                                <td>@s.L</td>
+                                <td>@s.A</td>
+                                <td>@s.H</td>
+                                <td>@s.ATTENDANCEPERCENT%</td>
+                                @foreach (var dayCol in Model.DayColumns)
+                                {
+                                    var meta = dayMeta.GetValueOrDefault(dayCol);
+                                    var isHoliday = meta?.IsHoliday == true;
+                                    var letter = s.GetDay(dayCol);
+                                    <td class="day-col @(isHoliday ? "holiday" : "")">
+                                        @if (!string.IsNullOrEmpty(letter))
+                                        {
+                                            <span class="att-badge @LetterClass(letter)">@letter</span>
+                                        }
+                                    </td>
+                                }
+
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="@(8 + Model.DayColumns.Count)" class="text-center text-muted py-4">No records found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="mt-2">
+                <ul class="pagination pagination-sm justify-content-end mb-0">
+                    @for (int pg = 1; pg <= Model.TotalPages; pg++)
+                    {
+                        <li class="page-item @(pg == Model.PageNumber ? "active" : "")">
+                            <a class="page-link"
+                               href="@Url.Action("AttendanceStaffMonthlyReport", new {
+                                   pageNumber = pg,
+                                   pageSize = Model.PageSize,
+                                   searchKeyword = Model.SearchKeyword,
+                                   roleId = Model.RoleID,
+                                   month = Model.Month,
+                                   year = Model.Year,
+                                   companyId = Model.CompanyId,
+                                   sessionId = Model.SessionId
+                               })">
+                                @pg
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    </div>
+</div>

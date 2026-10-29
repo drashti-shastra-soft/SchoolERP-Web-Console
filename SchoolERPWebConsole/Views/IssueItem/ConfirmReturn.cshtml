@@ -1,0 +1,101 @@
+﻿@model SchoolERPWebConsole.Domain.ItemIssueAddViewModel
+@using System.Security.Claims
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Confirm Return";
+    var p = Model.Permissions;
+}
+
+<!-- Page Header -->
+<div class="row">
+    <div class="col-xl-12">
+        <div class="sticky-toolbar d-flex align-items-sm-center justify-content-between gap-1 mb-2">
+            <div>
+                <h6 class="fw-bold mb-0">Confirm Return</h6>
+            </div>
+            
+            <div class="d-flex flex-wrap align-items-center gap-1 responsive-btn-group">
+                @if (p.CanAdd)
+                {
+                    <button type="button" id="btnReturn" onclick="confirmReturn()" class="btn btn-success top-btn">
+                        <i class="ti ti-device-floppy me-1"></i> Return
+                    </button>
+                }
+                <a href="/IssueItem/Index" class="btn btn-secondary top-btn">
+                    <i class="ti ti-arrow-left me-1"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- Details Card -->
+    <div class="col-md-12 mb-3">
+        <div class="shadow rounded-2 overflow-hidden h-100">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <b>Complaint Details</b>
+                </li>
+                <input type="hidden" id="hdnItemIssueId" value="@(Model.EditItemIssue?.ItemIssueId ?? 0)"/>
+                <input type="hidden" id="hdnQuantity" value="@(Model.EditItemIssue?.Quantity ?? 0)"/>
+                @if (Model != null)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Item Name :</span>
+                        <span>@Model?.EditItemIssue?.ItemName</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Category Name :</span>
+                        <span>@Model?.EditItemIssue?.CategoryName</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Quantity :</span>
+                        <span>@Model?.EditItemIssue?.Quantity</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Issue To :</span>
+                        <span>@Model?.EditItemIssue?.IssueToName</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Issue By :</span>
+                        <span>@Model?.EditItemIssue?.IssueByName</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Issue Date :</span>
+                        <span>@Model?.EditItemIssue?.IssueDate?.ToString("dd MMM yyyy")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Return Date :</span>
+                        <span>@Model?.EditItemIssue?.ReturnDate?.ToString("dd MMM yyyy")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-dark">Note :</span>
+                        <span>@Model?.EditItemIssue?.Note</span>
+                    </li>
+
+                }
+                else
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Item Name :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Category Name :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Quantity :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Issue To :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Issue By :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Issue Date :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Return Date :</span> -</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><span class="text-dark">Note :</span> -</li>
+                }
+            </ul>
+        </div>
+    </div>
+    </div>
+
+@section Scripts {
+    <script>
+        window.canAdd = @JsonSerializer.Serialize(p.CanAdd);
+        window.canEdit = @JsonSerializer.Serialize(p.CanEdit);
+        window.canDelete = @JsonSerializer.Serialize(p.CanDelete);
+    </script>
+
+    <script src="~/assets/js/ItemIssue.js"></script>
+}
