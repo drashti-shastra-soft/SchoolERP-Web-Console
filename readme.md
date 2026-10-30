@@ -50,5 +50,3 @@ V4/
 │   ├── Config/                           # Environment-specific app settings
 │   └── Web.config
 ├── SchoolERP.Domain/                     # Domain models and list/pagination models
-├── SchoolERP.Infrastructure/             # Service interfaces, helpers, constants, exceptions
-└── SchoolERP.Service/                    # Service implementations, API communication, ADO.NET/SPs
