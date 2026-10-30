@@ -50,3 +50,10 @@ V4/
 │   ├── Config/                           # Environment-specific app settings
 │   └── Web.config
 ├── SchoolERP.Domain/                     # Domain models and list/pagination models
+
+
+## 🔗 Project Links
+
+| Environment | Link | Status |
+| :--- | :--- | :--- |
+| **Live Website** | [https://schoolerp-web-console.quantifyrellp.space/]
